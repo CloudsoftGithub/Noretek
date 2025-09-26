@@ -12,6 +12,7 @@ export default function PropertyUnitForm() {
   const [successMessage, setSuccessMessage] = useState("");
   const [filterProperty, setFilterProperty] = useState("");
   const [user, setUser] = useState(null);
+  const [loadingMeters, setLoadingMeters] = useState(false);
 
   const [form, setForm] = useState({
     property_id: "",
@@ -34,17 +35,16 @@ export default function PropertyUnitForm() {
     }
     fetchUnits();
     fetchProperties();
-    fetchMeters();
   }, []);
 
   const showSuccess = (message) => {
     setSuccessMessage(message);
-    setTimeout(() => setSuccessMessage(""), 3000);
+    setTimeout(() => setSuccessMessage(""), 4000);
   };
 
   const showError = (message) => {
     setError(message);
-    setTimeout(() => setError(""), 5000);
+    setTimeout(() => setError(""), 6000);
   };
 
   const fetchUnits = async () => {
@@ -68,26 +68,52 @@ export default function PropertyUnitForm() {
   };
 
   const fetchMeters = async () => {
+    setLoadingMeters(true);
+    setError("");
+    
     try {
+      console.log("🔄 Starting meter fetch...");
+      
       const res = await fetch("/api/noretek-meter", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: localStorage.getItem("token") }),
+        body: JSON.stringify({
+          token: localStorage.getItem("noretekToken") || ""
+        }),
       });
 
+      console.log("Response status:", res.status);
       const data = await res.json();
+      console.log("Response data:", data);
 
       if (data.success) {
         setMeters(data.meters || []);
+        
+        // Store the token if provided
         if (data.token) {
-          localStorage.setItem("token", data.token);
+          localStorage.setItem("noretekToken", data.token);
         }
-        showSuccess("📡 Meters loaded successfully");
+        
+        const meterCount = data.meters?.length || 0;
+        showSuccess(`✅ Successfully loaded ${meterCount} meters from Noretek API`);
+        
+        if (meterCount === 0) {
+          showError("⚠️ No meters found in the API response");
+        }
       } else {
-        showError(data.message || "Failed to fetch meters");
+        const errorMsg = data.message || data.error || "Failed to fetch meters from Noretek API";
+        console.error("API Error:", errorMsg);
+        showError(`❌ ${errorMsg}`);
+        
+        if (data.details) {
+          console.error("Error details:", data.details);
+        }
       }
     } catch (err) {
-      showError("Error fetching meters: " + err.message);
+      console.error("Fetch error:", err);
+      showError(`❌ Network error: ${err.message}`);
+    } finally {
+      setLoadingMeters(false);
     }
   };
 
@@ -95,20 +121,6 @@ export default function PropertyUnitForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Check for duplicate unit
-    const unitExists = units.some(
-      (u) =>
-        u.property_id?._id === form.property_id &&
-        u.blockno === form.blockno &&
-        u.unit_description === form.unit_description &&
-        u._id !== editId
-    );
-    
-    if (unitExists) {
-      showError(`Unit "${form.unit_description}" already exists in Block ${form.blockno}`);
-      return;
-    }
 
     try {
       const method = editId ? "PUT" : "POST";
@@ -119,8 +131,9 @@ export default function PropertyUnitForm() {
       });
 
       const data = await res.json();
+      
       if (!res.ok) {
-        showError(data.message || "Error saving unit");
+        showError(data.message || data.error || "Error saving unit");
         return;
       }
 
@@ -130,6 +143,7 @@ export default function PropertyUnitForm() {
         showSuccess("✅ Unit added successfully!");
       }
 
+      // Reset form
       setForm({
         property_id: "",
         unit_description: "",
@@ -142,7 +156,7 @@ export default function PropertyUnitForm() {
       fetchUnits();
       setError("");
     } catch (error) {
-      showError("❌ Error saving unit");
+      showError("❌ Error saving unit: " + error.message);
     }
   };
 
@@ -163,11 +177,18 @@ export default function PropertyUnitForm() {
     if (!confirm("Are you sure you want to delete this unit?")) return;
     
     try {
-      await fetch("/api/property_unit", {
+      const res = await fetch("/api/property_unit", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        showError(data.message || "Error deleting unit");
+        return;
+      }
+      
       showSuccess("🗑️ Unit deleted successfully!");
       fetchUnits();
     } catch (error) {
@@ -175,10 +196,37 @@ export default function PropertyUnitForm() {
     }
   };
 
-  const displayedUnits =
-    filterProperty === ""
-      ? []
-      : units.filter((u) => u.property_id?._id === filterProperty);
+  // Helper function to check if meter is registered to another unit
+  const getMeterStatus = (meterId, currentUnitId = null) => {
+    if (!meterId) return { isRegistered: false, unit: null };
+    
+    const registeredUnit = units.find(unit => 
+      unit.meter_id === meterId && unit._id !== currentUnitId
+    );
+    
+    return {
+      isRegistered: !!registeredUnit,
+      unit: registeredUnit
+    };
+  };
+
+  // Get all registered meter IDs (excluding current unit being edited)
+  const registeredMeterIds = units
+    .filter(unit => unit.meter_id && unit._id !== editId)
+    .map(unit => unit.meter_id);
+
+  // Separate available and registered meters
+  const availableMeters = meters.filter(meter => 
+    !registeredMeterIds.includes(meter.meterId)
+  );
+  
+  const registeredMeters = meters.filter(meter => 
+    registeredMeterIds.includes(meter.meterId)
+  );
+
+  const displayedUnits = filterProperty === "" 
+    ? [] 
+    : units.filter((u) => u.property_id?._id === filterProperty);
 
   const selectedProperty = properties.find(p => p._id === filterProperty);
 
@@ -250,8 +298,12 @@ export default function PropertyUnitForm() {
                   name="unit_description"
                   value={form.unit_description}
                   onChange={handleChange}
+                  placeholder="e.g., Unit 1, Apartment A"
                   required
                 />
+                <small className="text-muted">
+                  Only exact duplicates will show error
+                </small>
               </div>
 
               {/* Block No */}
@@ -266,37 +318,98 @@ export default function PropertyUnitForm() {
                   name="blockno"
                   value={form.blockno}
                   onChange={handleChange}
+                  placeholder="e.g., Block A, Section 1"
                   required
                 />
+                <small className="text-muted">
+                  Slight variations are allowed
+                </small>
               </div>
 
               {/* Meter ID */}
               <div className="col-md-6 mb-3">
-                <label className="form-label">
-                  <i className="bi bi-speedometer2 me-1"></i>
-                  Meter ID
-                </label>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <label className="form-label mb-0">
+                    <i className="bi bi-speedometer2 me-1"></i>
+                    Meter ID
+                  </label>
+                  <button 
+                    type="button" 
+                    className="btn btn-sm btn-outline-primary"
+                    onClick={fetchMeters}
+                    disabled={loadingMeters}
+                  >
+                    {loadingMeters ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2" />
+                        Loading...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-arrow-clockwise me-2"></i>
+                        Load Meters
+                      </>
+                    )}
+                  </button>
+                </div>
                 <select
                   className="form-select shadow-none"
                   name="meter_id"
                   value={form.meter_id}
                   onChange={handleChange}
+                  disabled={loadingMeters}
                 >
-                  <option value="">Select Meter</option>
-                  {meters
-                    .filter(
-                      (m) =>
-                        !units.some((u) => u.meter_id === m.meterId && u._id !== editId)
-                    )
-                    .map((meter) => (
-                      <option key={meter.meterId} value={meter.meterId}>
-                        {meter.meterId}
-                      </option>
-                    ))}
+                  <option value="">Select Meter (Optional)</option>
+                  
+                  {/* Available Meters */}
+                  {availableMeters.length > 0 && (
+                    <optgroup label="🟢 Available Meters">
+                      {availableMeters.map((meter) => (
+                        <option key={meter.meterId} value={meter.meterId}>
+                          ✅ {meter.meterId}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  
+                  {/* Registered Meters (for editing current unit only) */}
+                  {registeredMeters.length > 0 && editId && (
+                    <optgroup label="🔴 Already Registered">
+                      {registeredMeters.map((meter) => {
+                        const status = getMeterStatus(meter.meterId, editId);
+                        return (
+                          <option 
+                            key={meter.meterId} 
+                            value={meter.meterId}
+                            disabled={status.isRegistered}
+                            style={{ color: '#6c757d' }}
+                          >
+                            🚫 {meter.meterId} (Assigned)
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                  )}
                 </select>
-                <small className="text-muted">
-                  {meters.length} meters available
-                </small>
+                
+                <div className="mt-2">
+                  <small className="text-success">
+                    <i className="bi bi-check-circle me-1"></i>
+                    {availableMeters.length} meters available
+                  </small>
+                  {registeredMeters.length > 0 && (
+                    <small className="text-warning d-block">
+                      <i className="bi bi-exclamation-triangle me-1"></i>
+                      {registeredMeters.length} meters already registered
+                    </small>
+                  )}
+                  {meters.length === 0 && (
+                    <small className="text-muted d-block">
+                      <i className="bi bi-info-circle me-1"></i>
+                      Click "Load Meters" to fetch from Noretek API
+                    </small>
+                  )}
+                </div>
               </div>
 
               {/* Captured By */}
@@ -373,7 +486,7 @@ export default function PropertyUnitForm() {
           value={filterProperty}
           onChange={(e) => setFilterProperty(e.target.value)}
         >
-          <option value="">-- Select Property --</option>
+          <option value="">-- Select Property to View Units --</option>
           {properties.map((p) => (
             <option key={p._id} value={p._id}>
               {p.property_name}
@@ -395,8 +508,7 @@ export default function PropertyUnitForm() {
             className="btn btn-sm btn-light"
             onClick={() => {
               fetchUnits();
-              fetchMeters();
-              showSuccess("🔄 Data refreshed successfully");
+              showSuccess("🔄 Units refreshed successfully");
             }}
           >
             <i className="bi bi-arrow-clockwise"></i> Refresh
@@ -426,9 +538,15 @@ export default function PropertyUnitForm() {
                     <td>{u.blockno}</td>
                     <td>
                       {u.meter_id ? (
-                        <span className="badge bg-success">{u.meter_id}</span>
+                        <span className="badge bg-success">
+                          <i className="bi bi-speedometer2 me-1"></i>
+                          {u.meter_id}
+                        </span>
                       ) : (
-                        <span className="badge bg-warning">No Meter</span>
+                        <span className="badge bg-warning">
+                          <i className="bi bi-exclamation-triangle me-1"></i>
+                          No Meter
+                        </span>
                       )}
                     </td>
                     <td>{u.captured_by}</td>

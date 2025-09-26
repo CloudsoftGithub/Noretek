@@ -30,11 +30,41 @@ export async function POST(request) {
       );
     }
 
+    // Trim inputs
+    const trimmedUnitDesc = unit_description.trim();
+    const trimmedBlockNo = blockno.trim();
+    const trimmedMeterId = meter_id ? meter_id.trim() : null;
+
+    // Check for existing meter ID (strict duplicate check)
+    if (trimmedMeterId) {
+      const existingMeter = await PropertyUnit.findOne({ meter_id: trimmedMeterId });
+      if (existingMeter) {
+        return new Response(
+          JSON.stringify({ message: "This meter ID is already assigned to another unit" }),
+          { status: 400 }
+        );
+      }
+    }
+
+    // Check for exact duplicate unit (same property, exact same unit_description and blockno)
+    const exactDuplicate = await PropertyUnit.findOne({
+      property_id,
+      unit_description: trimmedUnitDesc,
+      blockno: trimmedBlockNo
+    });
+
+    if (exactDuplicate) {
+      return new Response(
+        JSON.stringify({ message: "This unit already exists in the selected property and block" }),
+        { status: 400 }
+      );
+    }
+
     const newUnit = new PropertyUnit({
       property_id,
-      unit_description,
-      blockno,
-      meter_id,
+      unit_description: trimmedUnitDesc,
+      blockno: trimmedBlockNo,
+      meter_id: trimmedMeterId,
       captured_by,
       date,
     });
@@ -46,32 +76,7 @@ export async function POST(request) {
       { status: 201 }
     );
   } catch (err) {
-    if (err.code === 11000) {
-      // 🔍 Friendly duplicate error messages
-      if (err.keyPattern?.meter_id) {
-        return new Response(
-          JSON.stringify({ message: "This meter ID is already assigned to another unit" }),
-          { status: 400 }
-        );
-      }
-      if (err.keyPattern?.blockno && err.keyPattern?.property_id) {
-        return new Response(
-          JSON.stringify({ message: "This block already exists in the selected property" }),
-          { status: 400 }
-        );
-      }
-      if (err.keyPattern?.unit_description && err.keyPattern?.blockno) {
-        return new Response(
-          JSON.stringify({ message: "This unit already exists in the selected block of this property" }),
-          { status: 400 }
-        );
-      }
-      return new Response(
-        JSON.stringify({ message: "Duplicate entry detected" }),
-        { status: 400 }
-      );
-    }
-
+    // Remove all MongoDB duplicate key error handling
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }
@@ -86,6 +91,50 @@ export async function PUT(request) {
       return new Response(JSON.stringify({ message: "Unit ID is required" }), { status: 400 });
     }
 
+    // Trim inputs if they exist in updates
+    if (updates.unit_description) updates.unit_description = updates.unit_description.trim();
+    if (updates.blockno) updates.blockno = updates.blockno.trim();
+    if (updates.meter_id) updates.meter_id = updates.meter_id.trim();
+
+    const existingUnit = await PropertyUnit.findById(id);
+    if (!existingUnit) {
+      return new Response(JSON.stringify({ message: "Unit not found" }), { status: 404 });
+    }
+
+    const property_id = updates.property_id || existingUnit.property_id;
+    const unit_description = updates.unit_description || existingUnit.unit_description;
+    const blockno = updates.blockno || existingUnit.blockno;
+    const meter_id = updates.meter_id || existingUnit.meter_id;
+
+    // Check for exact duplicate unit (excluding current unit)
+    const exactDuplicate = await PropertyUnit.findOne({
+      _id: { $ne: id },
+      property_id,
+      unit_description,
+      blockno
+    });
+
+    if (exactDuplicate) {
+      return new Response(
+        JSON.stringify({ message: "This unit already exists in the selected property and block" }),
+        { status: 400 }
+      );
+    }
+
+    // Check for meter_id duplicate if updating meter_id
+    if (updates.meter_id) {
+      const existingMeter = await PropertyUnit.findOne({
+        _id: { $ne: id },
+        meter_id: updates.meter_id
+      });
+      if (existingMeter) {
+        return new Response(
+          JSON.stringify({ message: "This meter ID is already assigned to another unit" }),
+          { status: 400 }
+        );
+      }
+    }
+
     const updated = await PropertyUnit.findByIdAndUpdate(id, updates, { new: true });
     if (!updated) {
       return new Response(JSON.stringify({ message: "Unit not found" }), { status: 404 });
@@ -93,31 +142,7 @@ export async function PUT(request) {
 
     return new Response(JSON.stringify({ message: "Unit updated successfully", unit: updated }), { status: 200 });
   } catch (err) {
-    if (err.code === 11000) {
-      if (err.keyPattern?.meter_id) {
-        return new Response(
-          JSON.stringify({ message: "This meter ID is already assigned to another unit" }),
-          { status: 400 }
-        );
-      }
-      if (err.keyPattern?.blockno && err.keyPattern?.property_id) {
-        return new Response(
-          JSON.stringify({ message: "This block already exists in the selected property" }),
-          { status: 400 }
-        );
-      }
-      if (err.keyPattern?.unit_description && err.keyPattern?.blockno) {
-        return new Response(
-          JSON.stringify({ message: "This unit already exists in the selected block of this property" }),
-          { status: 400 }
-        );
-      }
-      return new Response(
-        JSON.stringify({ message: "Duplicate entry detected" }),
-        { status: 400 }
-      );
-    }
-
+    // Remove all MongoDB duplicate key error handling
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }

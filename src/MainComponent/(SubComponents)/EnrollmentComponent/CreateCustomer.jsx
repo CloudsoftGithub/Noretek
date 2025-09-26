@@ -102,7 +102,7 @@ export default function CustomerSignUp() {
       const data = await res.json();
       
       if (data.success) {
-        showSuccess("✅ Signup successful! Redirecting to login...");
+        showSuccess("✅ Signup successful! ");
         
         // Reset form
         setForm({
@@ -124,9 +124,7 @@ export default function CustomerSignUp() {
         });
 
         // Redirect to login after 3 seconds
-        setTimeout(() => {
-          router.push("/login");
-        }, 3000);
+       
       } else {
         showError(`❌ ${data.message || "Error occurred during signup"}`);
       }
