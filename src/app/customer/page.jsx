@@ -133,11 +133,29 @@ export default function CustomerPage() {
           property_name: selectedProperty.property_name || ""
         }));
         
-        // Filter units for the selected property
+        // Filter units for the selected property and enhance with customer info
         const unitsForProperty = properties
           .filter(p => p._id === formData.property_id)
           .flatMap(p => p.units || []);
-        setFilteredUnits(unitsForProperty);
+        
+        // Enhance units with customer information from userList
+        const enhancedUnits = unitsForProperty.map(unit => {
+          const matchingCustomer = userListCustomers.find(customer => {
+            return customer.propertyUnit?._id === unit._id || 
+                   (customer.propertyUnit?.unit_description === unit.unit_description && 
+                    customer.propertyUnit?.blockno === unit.blockno);
+          });
+          
+          return {
+            ...unit,
+            customerName: matchingCustomer?.name || '',
+            customerPhone: matchingCustomer?.phone || '',
+            hasCustomerData: !!matchingCustomer,
+            hasCertificateData: !!(matchingCustomer?.certifiName || matchingCustomer?.certifiNo)
+          };
+        });
+        
+        setFilteredUnits(enhancedUnits);
         
         // Reset unit selection when property changes
         setFormData(prev => ({ 
@@ -149,9 +167,9 @@ export default function CustomerPage() {
         }));
       }
     }
-  }, [formData.property_id, properties]);
+  }, [formData.property_id, properties, userListCustomers]);
 
-  // Auto-populate customer details when unit is selected - USING USERLIST DATA
+  // Auto-populate customer details when unit is selected - FIXED CERTIFICATE DATA
   useEffect(() => {
     if (formData.unit_id) {
       const selectedUnit = filteredUnits.find(u => u._id === formData.unit_id);
@@ -166,14 +184,13 @@ export default function CustomerPage() {
 
         // Now try to find matching customer data from userList
         const matchingCustomer = userListCustomers.find(customer => {
-          // Match by property unit ID or by unit description and block number
           return customer.propertyUnit?._id === formData.unit_id || 
                  (customer.propertyUnit?.unit_description === selectedUnit.unit_description && 
                   customer.propertyUnit?.blockno === selectedUnit.blockno);
         });
 
         if (matchingCustomer) {
-          // Auto-fill customer details from userList data
+          // Auto-fill customer details from userList data INCLUDING CERTIFICATE DATA
           setFormData(prev => ({
             ...prev,
             customerName: matchingCustomer.name || prev.customerName,
@@ -406,9 +423,6 @@ export default function CustomerPage() {
     setFormMessageType("");
     setLoading(true);
 
-    
-    
-
     try {
       const checkRes = await fetch("http://47.107.69.132:9400/API/Customer/Read", {
         method: "POST",
@@ -631,6 +645,22 @@ export default function CustomerPage() {
     return option ? option.label : value;
   };
 
+  // Get matching customer data for selected property/unit
+  const getSelectedCustomerData = () => {
+    if (!formData.property_id || !formData.unit_id) return null;
+    
+    const selectedUnit = filteredUnits.find(u => u._id === formData.unit_id);
+    if (!selectedUnit) return null;
+
+    const matchingCustomer = userListCustomers.find(customer => {
+      return customer.propertyUnit?._id === formData.unit_id || 
+             (customer.propertyUnit?.unit_description === selectedUnit.unit_description && 
+              customer.propertyUnit?.blockno === selectedUnit.blockno);
+    });
+
+    return matchingCustomer;
+  };
+
   return (
     <div className="container mt-5">
       <style jsx>{`
@@ -719,6 +749,14 @@ export default function CustomerPage() {
           font-size: 0.8em;
           margin-left: 5px;
         }
+        .certificate-fill-badge {
+          background-color: #fff3cd;
+          color: #856404;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 0.8em;
+          margin-left: 5px;
+        }
         .property-unit-info {
           font-size: 0.9em;
           color: #6c757d;
@@ -792,25 +830,105 @@ export default function CustomerPage() {
         }
         .property-details {
           background-color: #f8f9fa;
-          border-radius: 5px;
-          padding: 15px;
-          margin-top: 10px;
+          border-radius: 8px;
+          padding: 20px;
+          margin-top: 15px;
+          border: 1px solid #e9ecef;
         }
         .property-detail-item {
           display: flex;
-          justify-content: between;
-          margin-bottom: 5px;
+          justify-content: space-between;
+          margin-bottom: 8px;
+          padding: 5px 0;
+          border-bottom: 1px solid #e9ecef;
+        }
+        .property-detail-item:last-child {
+          border-bottom: none;
+          margin-bottom: 0;
         }
         .property-detail-label {
-          font-weight: bold;
+          font-weight: 600;
           min-width: 120px;
+          color: #495057;
+        }
+        .property-detail-value {
+          color: #6c757d;
+          text-align: right;
+          flex: 1;
         }
         .userlist-info {
           background-color: #e3f2fd;
           border-left: 4px solid #2196f3;
-          padding: 10px;
-          margin-top: 5px;
+          padding: 15px;
+          margin-top: 10px;
           border-radius: 4px;
+        }
+        .customer-info-section {
+          background-color: #f0f8ff;
+          border-left: 4px solid #007bff;
+          padding: 15px;
+          margin-top: 10px;
+          border-radius: 4px;
+        }
+        .customer-info-title {
+          font-weight: 600;
+          color: #007bff;
+          margin-bottom: 10px;
+          font-size: 0.95em;
+        }
+        .customer-info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 10px;
+        }
+        .customer-info-item {
+          display: flex;
+          justify-content: space-between;
+          padding: 5px 0;
+        }
+        .customer-info-label {
+          font-weight: 500;
+          color: #495057;
+        }
+        .customer-info-value {
+          color: #6c757d;
+        }
+        .unit-dropdown-option {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+        .unit-customer-info {
+          font-size: 0.85em;
+          color: #28a745;
+          font-weight: 500;
+        }
+        .no-customer-info {
+          font-size: 0.85em;
+          color: #6c757d;
+          font-style: italic;
+        }
+        .enhanced-unit-option {
+          padding: 8px 12px;
+          border-bottom: 1px solid #e9ecef;
+        }
+        .enhanced-unit-option:last-child {
+          border-bottom: none;
+        }
+        .unit-main-info {
+          font-weight: 500;
+          color: #212529;
+        }
+        .unit-customer-data {
+          font-size: 0.85em;
+          color: #28a745;
+          margin-top: 2px;
+        }
+        .unit-no-customer {
+          font-size: 0.85em;
+          color: #6c757d;
+          font-style: italic;
+          margin-top: 2px;
         }
       `}</style>
 
@@ -934,11 +1052,13 @@ export default function CustomerPage() {
                         <option key={unit._id} value={unit._id}>
                           {unit.unit_description} - Block {unit.blockno}
                           {unit.meter_id && ` (Meter: ${unit.meter_id})`}
+                          {unit.hasCustomerData ? ` | ${unit.customerName} - ${unit.customerPhone}` : ' | No customer data'}
+                          {unit.hasCertificateData && ' 📄'}
                         </option>
                       ))}
                     </select>
                     <small className="text-muted">
-                      Selecting a unit will auto-fill customer data from registration records
+                      Units with registered customers show name and phone number. 📄 indicates certificate data available.
                     </small>
                   </div>
                 </div>
@@ -946,36 +1066,83 @@ export default function CustomerPage() {
                 {/* Display Selected Property Details */}
                 {(formData.property_name || formData.unit_description) && (
                   <div className="property-details">
-                    <h6 className="titleColor mb-2">
+                    <h6 className="titleColor mb-3">
                       <i className="bi bi-info-circle me-2"></i>
-                      Selected Property Details:
+                      Selected Property Details
                     </h6>
                     <div className="row">
-                      <div className="col-md-3">
+                      <div className="col-md-6">
                         <div className="property-detail-item">
-                          <span className="property-detail-label">Property:</span>
-                          <span>{formData.property_name || "Not selected"}</span>
+                          <span className="property-detail-label">Property Name:</span>
+                          <span className="property-detail-value">{formData.property_name || "Not selected"}</span>
+                        </div>
+                        <div className="property-detail-item">
+                          <span className="property-detail-label">Unit Description:</span>
+                          <span className="property-detail-value">{formData.unit_description || "Not selected"}</span>
+                        </div>
+                        <div className="property-detail-item">
+                          <span className="property-detail-label">Block Number:</span>
+                          <span className="property-detail-value">{formData.blockno || "Not selected"}</span>
                         </div>
                       </div>
-                      <div className="col-md-3">
+                      <div className="col-md-6">
                         <div className="property-detail-item">
-                          <span className="property-detail-label">Unit:</span>
-                          <span>{formData.unit_description || "Not selected"}</span>
+                          <span className="property-detail-label">Meter ID:</span>
+                          <span className="property-detail-value">{formData.meter_id || "Not assigned"}</span>
                         </div>
-                      </div>
-                      <div className="col-md-3">
                         <div className="property-detail-item">
-                          <span className="property-detail-label">Block:</span>
-                          <span>{formData.blockno || "Not selected"}</span>
+                          <span className="property-detail-label">Property ID:</span>
+                          <span className="property-detail-value">{formData.property_id || "Not selected"}</span>
                         </div>
-                      </div>
-                      <div className="col-md-3">
                         <div className="property-detail-item">
-                          <span className="property-detail-label">Meter:</span>
-                          <span>{formData.meter_id || "Not assigned"}</span>
+                          <span className="property-detail-label">Unit ID:</span>
+                          <span className="property-detail-value">{formData.unit_id || "Not selected"}</span>
                         </div>
                       </div>
                     </div>
+
+                    {/* Show Registered Customer Information */}
+                    {(() => {
+                      const customerData = getSelectedCustomerData();
+                      return customerData ? (
+                        <div className="customer-info-section">
+                          <div className="customer-info-title">
+                            <i className="bi bi-person-check me-2"></i>
+                            Registered Customer Information (Auto-filled)
+                          </div>
+                          <div className="customer-info-grid">
+                            <div className="customer-info-item">
+                              <span className="customer-info-label">Name:</span>
+                              <span className="customer-info-value">{customerData.name || 'N/A'}</span>
+                            </div>
+                            <div className="customer-info-item">
+                              <span className="customer-info-label">Phone:</span>
+                              <span className="customer-info-value">{customerData.phone || 'N/A'}</span>
+                            </div>
+                            <div className="customer-info-item">
+                              <span className="customer-info-label">Address:</span>
+                              <span className="customer-info-value">{customerData.address || 'N/A'}</span>
+                            </div>
+                            <div className="customer-info-item">
+                              <span className="customer-info-label">Certificate Name:</span>
+                              <span className="customer-info-value">{customerData.certifiName || 'N/A'}</span>
+                            </div>
+                            <div className="customer-info-item">
+                              <span className="customer-info-label">Certificate Number:</span>
+                              <span className="customer-info-value">{customerData.certifiNo || 'N/A'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ) : formData.unit_id ? (
+                        <div className="customer-info-section">
+                          <div className="customer-info-title">
+                            <i className="bi bi-exclamation-triangle me-2"></i>
+                            No Registered Customer Data
+                          </div>
+                          <p className="mb-0 text-muted">No customer registration data found for this unit. Please fill in the customer details manually.</p>
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                 )}
               </div>
@@ -1051,7 +1218,7 @@ export default function CustomerPage() {
                   required
                   placeholder="Enter customer name"
                 />
-                {formData.unit_id && <span className="userlist-fill-badge">Auto-filled from registration</span>}
+                {formData.unit_id && getSelectedCustomerData() && <span className="userlist-fill-badge">Auto-filled from registration</span>}
               </div>
 
               <div className="col-md-6">
@@ -1081,7 +1248,7 @@ export default function CustomerPage() {
                   onChange={handleChange}
                   placeholder="Enter phone number"
                 />
-                {formData.unit_id && <span className="userlist-fill-badge">Auto-filled from registration</span>}
+                {formData.unit_id && getSelectedCustomerData() && <span className="userlist-fill-badge">Auto-filled from registration</span>}
               </div>
 
               <div className="col-md-6">
@@ -1094,7 +1261,7 @@ export default function CustomerPage() {
                   onChange={handleChange}
                   placeholder="Enter address"
                 />
-                {formData.unit_id && <span className="userlist-fill-badge">Auto-filled from registration</span>}
+                {formData.unit_id && getSelectedCustomerData() && <span className="userlist-fill-badge">Auto-filled from registration</span>}
               </div>
 
               <div className="col-md-6">
@@ -1107,7 +1274,9 @@ export default function CustomerPage() {
                   onChange={handleChange}
                   placeholder="Enter certificate name"
                 />
-                {formData.unit_id && <span className="userlist-fill-badge">Auto-filled from registration</span>}
+                {formData.unit_id && getSelectedCustomerData() && getSelectedCustomerData().certifiName && (
+                  <span className="certificate-fill-badge">Auto-filled certificate data</span>
+                )}
               </div>
 
               <div className="col-md-6">
@@ -1120,10 +1289,10 @@ export default function CustomerPage() {
                   onChange={handleChange}
                   placeholder="Enter certificate number"
                 />
-                {formData.unit_id && <span className="userlist-fill-badge">Auto-filled from registration</span>}
+                {formData.unit_id && getSelectedCustomerData() && getSelectedCustomerData().certifiNo && (
+                  <span className="certificate-fill-badge">Auto-filled certificate data</span>
+                )}
               </div>
-
-             
 
               <div className="col-md-6">
                 <label className="form-label">Company</label>
@@ -1168,7 +1337,7 @@ export default function CustomerPage() {
         </div>
       )}
 
-      {/* CUSTOMER TABLE - Updated to include Property Information */}
+      {/* CUSTOMER TABLE */}
       {token && (
         <div className="card shadow mb-5">
           <div className="card-header primaryColor text-white">
@@ -1246,7 +1415,6 @@ export default function CustomerPage() {
                         <th className="titleColor">Certificate Name</th>
                         <th className="titleColor">Certificate Number</th>
                         <th className="titleColor">Company</th>
-                        
                         <th className="titleColor">Remark</th>
                         <th className="titleColor">Actions</th>
                       </tr>
@@ -1267,7 +1435,6 @@ export default function CustomerPage() {
                             <td>{customer.certifiName || "-"}</td>
                             <td>{customer.certifiNo || "-"}</td>
                             <td>{customer.company}</td>
-                           
                             <td>{customer.remark || "-"}</td>
                             <td>
                               <button
@@ -1282,7 +1449,7 @@ export default function CustomerPage() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan="15" className="text-center text-muted display-5 py-4">
+                          <td colSpan="14" className="text-center text-muted display-5 py-4">
                             No customers found
                           </td>
                         </tr>

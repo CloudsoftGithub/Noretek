@@ -22,7 +22,7 @@ export default function TicketTable({ tickets, onEdit, onDelete, onViewComments 
             <th>ID</th>
             <th>Title</th>
             <th>Category</th>
-            <th>Created By</th> {/* ✅ show customer email */}
+            <th>Created By</th>
             <th>Status</th>
             <th>Priority</th>
             <th>Created</th>
@@ -37,12 +37,12 @@ export default function TicketTable({ tickets, onEdit, onDelete, onViewComments 
               </td>
               <td>{ticket.title}</td>
               <td>{ticket.category}</td>
-              <td>{ticket.created_by || "N/A"}</td> {/* ✅ fix: use created_by */}
+              <td>{ticket.created_by || "N/A"}</td>
               <td>
                 <StatusBadge status={ticket.status} />
               </td>
               <td>
-                <PriorityBadge priority={ticket.priority} />
+                <PriorityBadge level={ticket.priority} />
               </td>
               <td>
                 {ticket.created_at
@@ -57,7 +57,6 @@ export default function TicketTable({ tickets, onEdit, onDelete, onViewComments 
                   >
                     <i className="bi bi-pencil"></i>
                   </button>
-                 
                 </div>
               </td>
             </tr>

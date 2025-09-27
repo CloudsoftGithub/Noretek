@@ -118,8 +118,8 @@ export default function Dashboard() {
   const handleLogout = () => {
     localStorage.clear();
     setUser(null);
-    router.push("/enrollmentOfficer"); // ✅ redirect back here
-  };
+    router.push("/"); // ✅ redirect to homepage
+};
 
   const sidebarMenu = [
     {

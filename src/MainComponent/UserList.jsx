@@ -1,12 +1,37 @@
-// src/MainComponent/UserList.jsx
 "use client";
 import { useEffect, useState } from "react";
 
 export default function UserList() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentPage, setCurrentPage] = useState(1); // ✅ page state
-  const usersPerPage = 10; // ✅ customers per page
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState(""); // ✅ search state
+  const [propertyFilter, setPropertyFilter] = useState(""); // ✅ filter state (example)
+  const usersPerPage = 10;
+
+
+  // ✅ Filtering & Searching
+  const filteredUsers = users.filter((u) => {
+    // Filter by property name if filter is set
+    const propertyMatch = propertyFilter
+      ? u.propertyName?.property_name === propertyFilter
+      : true;
+    // Search by name, email, phone, etc.
+    const searchMatch = [u.name, u.email, u.phone, u.address]
+      .some(field => field?.toLowerCase().includes(searchTerm.toLowerCase()));
+    return propertyMatch && searchMatch;
+  });
+
+  // Pagination logic (on filtered users)
+  const indexOfLastUser = currentPage * usersPerPage;
+  const indexOfFirstUser = indexOfLastUser - usersPerPage;
+  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+
+  // Extract unique properties for filter dropdown
+  const propertyNames = [
+    ...new Set(users.map(u => u.propertyName?.property_name).filter(Boolean))
+  ];
 
   useEffect(() => {
     fetch("/api/customer-signup-api")
@@ -18,17 +43,38 @@ export default function UserList() {
       .finally(() => setLoading(false));
   }, []);
 
-  // ✅ Pagination logic
-  const indexOfLastUser = currentPage * usersPerPage;
-  const indexOfFirstUser = indexOfLastUser - usersPerPage;
-  const currentUsers = users.slice(indexOfFirstUser, indexOfLastUser);
-  const totalPages = Math.ceil(users.length / usersPerPage);
-
   return (
     <div className="container mt-5">
       <h3 className="mb-4 text-center">Customer List</h3>
 
-      {/* ✅ Spinner */}
+      {/* ✅ Search & Filter Controls */}
+      <div className="d-flex mb-3 gap-2">
+        <input
+          type="text"
+          className="form-control"
+          placeholder="Search by name, email, phone, or address..."
+          value={searchTerm}
+          onChange={e => {
+            setSearchTerm(e.target.value);
+            setCurrentPage(1); // Reset page when searching
+          }}
+        />
+        <select
+          className="form-select"
+          value={propertyFilter}
+          onChange={e => {
+            setPropertyFilter(e.target.value);
+            setCurrentPage(1); // Reset page when filtering
+          }}
+        >
+          <option value="">All Properties</option>
+          {propertyNames.map(name => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Spinner */}
       {loading && (
         <div className="d-flex justify-content-center align-items-center mb-3">
           <div className="spinner-border text-primary me-2" role="status"></div>
@@ -52,9 +98,8 @@ export default function UserList() {
             </tr>
           </thead>
           <tbody>
-            {/* ✅ Skeleton */}
             {loading ? (
-              [...Array(5)].map((_, i) => (
+              [...Array(10)].map((_, i) => (
                 <tr key={i}>
                   {Array(9)
                     .fill("")
@@ -96,7 +141,7 @@ export default function UserList() {
         </table>
       </div>
 
-      {/* ✅ Pagination Controls */}
+      {/* Pagination Controls */}
       {!loading && totalPages > 1 && (
         <div className="d-flex justify-content-between align-items-center mt-3">
           <button

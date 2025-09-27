@@ -2,6 +2,14 @@ import { connectDB, getConnectionStatus } from "@/lib/mongodb";
 import Payment from "@/models/Payment";
 import Token from "@/models/Token";
 
+// Conversion factor: 510 kg = 1 cubic meter
+const KG_PER_CUBIC_METER = 510;
+
+// Helper function to calculate cubic meters from kg
+const calculateCubicMeters = (kg) => {
+  return (kg / KG_PER_CUBIC_METER).toFixed(3);
+};
+
 export async function GET(request) {
   try {
     // Check and ensure database connection
@@ -43,7 +51,7 @@ export async function GET(request) {
       sortOrder
     });
 
-    // FIXED: Use a simpler approach - get payments and tokens separately
+    // Get payments and tokens separately
     const payments = await Payment.find({ 
       customer_email: customerEmail.toLowerCase().trim() 
     })
@@ -74,6 +82,8 @@ export async function GET(request) {
       const pricePerKg = Number(payment.metadata?.pricePerKg) || 55;
       const amount = Number(payment.amount) || 0;
       const calculatedUnits = amount > 0 ? (amount / pricePerKg).toFixed(2) : '0.00';
+      const units = associatedToken?.units || calculatedUnits;
+      const cubicMeters = calculateCubicMeters(parseFloat(units));
 
       return {
         id: payment._id?.toString(),
@@ -89,6 +99,7 @@ export async function GET(request) {
         token: associatedToken ? {
           value: associatedToken.token,
           units: associatedToken.units || calculatedUnits,
+          cubicMeters: cubicMeters,
           pricePerKg: pricePerKg,
           expiresAt: associatedToken.expiresAt
         } : null,
@@ -99,6 +110,7 @@ export async function GET(request) {
           pricePerKg: pricePerKg,
           nairaAmount: amount,
           units: associatedToken?.units || calculatedUnits,
+          cubicMeters: cubicMeters,
           status: payment.status
         }
       };
@@ -122,7 +134,8 @@ export async function GET(request) {
       },
       meta: {
         timestamp: new Date().toISOString(),
-        query: { sortBy, sortOrder, limit, page }
+        query: { sortBy, sortOrder, limit, page },
+        conversionFactor: `${KG_PER_CUBIC_METER} kg = 1 cubic meter`
       }
     };
 

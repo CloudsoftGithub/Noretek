@@ -1,3 +1,4 @@
+//src/MainComponent/(SubComponents)/EnrollmentComponent/PropertyTablesEnrollment.jsx
 "use client";
 import { useState, useEffect } from "react";
 
@@ -9,6 +10,7 @@ export default function PropertyTablesEnrollment() {
   // Filters
   const [propertyNameFilter, setPropertyNameFilter] = useState("");
   const [propertyDateFilter, setPropertyDateFilter] = useState("");
+  const [searchTerm, setSearchTerm] = useState(""); // 🔍 Global search
 
   // Fetch Property data
   const fetchProperties = async () => {
@@ -28,23 +30,39 @@ export default function PropertyTablesEnrollment() {
     fetchProperties();
   }, []);
 
-  // Filtered data
-  const filteredProperties = properties.filter(
-    (p) =>
-      p.property_name
-        ?.toLowerCase()
-        .includes(propertyNameFilter.toLowerCase()) &&
-      (propertyDateFilter
-        ? new Date(p.date_captured).toLocaleDateString() ===
-          new Date(propertyDateFilter).toLocaleDateString()
-        : true)
-  );
+  // Filtered + searched data
+  const filteredProperties = properties.filter((p) => {
+    const matchesName = p.property_name
+      ?.toLowerCase()
+      .includes(propertyNameFilter.toLowerCase());
+
+    const matchesDate = propertyDateFilter
+      ? new Date(p.date_captured).toLocaleDateString() ===
+        new Date(propertyDateFilter).toLocaleDateString()
+      : true;
+
+    const matchesSearch = searchTerm
+      ? [
+          p.owner_name,
+          p.owner_gsm,
+          p.property_name,
+          p.property_location,
+          p.property_address,
+          p.captured_by,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())
+      : true;
+
+    return matchesName && matchesDate && matchesSearch;
+  });
 
   return (
     <div className="container my-4">
-      {/* Property Filters */}
+      {/* Filters & Search Bar */}
       <div className="mb-3 row">
-        <div className="col-md-6 mb-2">
+        <div className="col-md-4 mb-2">
           <input
             type="text"
             className="form-control"
@@ -53,12 +71,21 @@ export default function PropertyTablesEnrollment() {
             onChange={(e) => setPropertyNameFilter(e.target.value)}
           />
         </div>
-        <div className="col-md-6 mb-2">
+        <div className="col-md-4 mb-2">
           <input
             type="date"
             className="form-control"
             value={propertyDateFilter}
             onChange={(e) => setPropertyDateFilter(e.target.value)}
+          />
+        </div>
+        <div className="col-md-4 mb-2">
+          <input
+            type="text"
+            className="form-control"
+            placeholder="🔍 Search across all fields"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>

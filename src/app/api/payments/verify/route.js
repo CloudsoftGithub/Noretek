@@ -8,6 +8,14 @@ import { getCurrentPrice } from "@/lib/priceManager";
 // Define API_BASE_URL using environment variable
 const API_BASE_URL = process.env.API_BASE_URL || 'http://47.107.69.132:9400';
 
+// Conversion factor: 510 kg = 1 cubic meter
+const KG_PER_CUBIC_METER = 510;
+
+// Helper function to calculate cubic meters from kg
+const calculateCubicMeters = (kg) => {
+  return (kg / KG_PER_CUBIC_METER).toFixed(3);
+};
+
 // Helper function for vend token generation with improved error handling
 async function generateVendToken(meterNumber, amount, reference) {
   const payload = {
@@ -141,17 +149,21 @@ export async function GET(request) {
         tokenExists: !!existingToken,
       };
 
-      // Include existing token if available
+      // Include existing token if available with cubic meters
       if (existingToken?.token) {
+        const units = parseFloat(existingToken.units || '0');
+        const cubicMeters = calculateCubicMeters(units);
+        
         responseData.data.token = existingToken.token;
         responseData.data.tokenInfo = {
           token: existingToken.token,
           units: existingToken.units,
+          cubicMeters: cubicMeters,
           meterNumber: existingToken.meterNumber,
           amount: existingToken.amount,
           generatedAt: existingToken.created_at,
         };
-        console.log("Returning existing token for verified payment");
+        console.log("Returning existing token for verified payment with cubic meters");
       } else {
         // Remove token from metadata to avoid confusion
         if (responseData.data.metadata?.token) {
@@ -205,12 +217,14 @@ export async function GET(request) {
     const currentPricePerKg =
       Number(paystackData.metadata?.pricePerKg) || getCurrentPrice();
     const calculatedUnits = (nairaAmount / currentPricePerKg).toFixed(2);
+    const calculatedCubicMeters = calculateCubicMeters(parseFloat(calculatedUnits));
 
     console.log("Payment Details:", {
       reference,
       amount: nairaAmount,
       pricePerKg: currentPricePerKg,
       calculatedUnits,
+      calculatedCubicMeters,
       status: paystackStatus,
       source: paystackData.metadata?.pricePerKg ? "metadata" : "priceManager",
     });
@@ -240,6 +254,7 @@ export async function GET(request) {
               pricePerKg: currentPricePerKg,
               nairaAmount,
               units: calculatedUnits,
+              cubicMeters: calculatedCubicMeters,
             },
             transaction_id: paystackData.id?.toString(),
             gateway_response: paystackData,
@@ -257,6 +272,7 @@ export async function GET(request) {
             pricePerKg: currentPricePerKg,
             nairaAmount,
             units: calculatedUnits,
+            cubicMeters: calculatedCubicMeters,
           };
           payment.verified_at = new Date();
           console.log("Updated existing payment record");
@@ -275,7 +291,7 @@ export async function GET(request) {
         );
       }
 
-      // FIXED: Token generation logic - only generate if explicitly requested and no token exists
+      // Token generation logic - only generate if explicitly requested and no token exists
       let finalToken = existingToken?.token;
       let tokenGenerated = false;
 
@@ -299,6 +315,7 @@ export async function GET(request) {
               meterNumber: payment.meter_number,
               amount: nairaAmount,
               units: calculatedUnits,
+              cubicMeters: calculatedCubicMeters,
               customerEmail: payment.customer_email,
               customerName: payment.customer_name,
               userId: payment.metadata?.userId,
@@ -328,6 +345,7 @@ export async function GET(request) {
               meterNumber: payment.meter_number,
               amount: nairaAmount,
               units: calculatedUnits,
+              cubicMeters: calculatedCubicMeters,
               customerEmail: payment.customer_email,
               customerName: payment.customer_name,
               userId: payment.metadata?.userId,
@@ -363,10 +381,14 @@ export async function GET(request) {
 
       // Include token in response only if it exists
       if (finalToken) {
+        const units = parseFloat(existingToken?.units || calculatedUnits);
+        const cubicMeters = calculateCubicMeters(units);
+        
         responseData.data.token = finalToken;
         responseData.data.tokenInfo = {
           token: finalToken,
           units: existingToken?.units || calculatedUnits,
+          cubicMeters: cubicMeters,
           meterNumber: payment.meter_number,
           amount: nairaAmount,
           generatedAt: existingToken?.created_at || new Date(),

@@ -20,6 +20,14 @@ function CustomerPaymentDashboardContent() {
   const [pricePerKg, setPricePerKg] = useState(1500);
   const [hasProcessedPayment, setHasProcessedPayment] = useState(false);
 
+  // Conversion factor: 510 kg = 1 cubic meter
+  const KG_PER_CUBIC_METER = 510;
+
+  // Helper function to calculate cubic meters from kg
+  const calculateCubicMeters = (kg) => {
+    return (kg / KG_PER_CUBIC_METER).toFixed(3);
+  };
+
   useEffect(() => {
     // Load price from localStorage
     const savedPrice = localStorage.getItem("pricePerKg");
@@ -156,11 +164,15 @@ function CustomerPaymentDashboardContent() {
           }
 
           if (finalToken) {
+            const units = data.data.tokenInfo?.units || data.data.metadata?.units || (nairaAmount / pricePerKg).toFixed(2);
+            const cubicMeters = calculateCubicMeters(parseFloat(units));
+
             const tokenInfo = {
               reference,
               token: finalToken,
               meterNumber,
-              units: data.data.tokenInfo?.units || data.data.metadata?.units || (nairaAmount / pricePerKg).toFixed(2),
+              units: units,
+              cubicMeters: cubicMeters,
               amount: nairaAmount,
               customerEmail: userEmail,
               customerName: data.data.customer_name || data.data.customer?.email || userEmail,
@@ -173,6 +185,7 @@ function CustomerPaymentDashboardContent() {
             localStorage.setItem("lastToken", finalToken);
             localStorage.setItem("lastMeter", meterNumber);
             localStorage.setItem("lastUnits", tokenInfo.units);
+            localStorage.setItem("lastCubicMeters", tokenInfo.cubicMeters);
             localStorage.setItem("lastNairaAmount", nairaAmount.toString());
             localStorage.setItem(`token_${reference}`, JSON.stringify(tokenInfo));
 
@@ -325,14 +338,25 @@ function CustomerPaymentDashboardContent() {
                   
                   <div className="row mb-3">
                     <div className="col-md-6">
-                      <p><strong>Price per KG:</strong> ₦{pricePerKg}</p>
+                      <p><strong>Volume (Cubic Meters):</strong> {generatedToken.cubicMeters || calculateCubicMeters(parseFloat(generatedToken.units))} m³</p>
                     </div>
                     <div className="col-md-6">
+                      <p><strong>Price per KG:</strong> ₦{pricePerKg}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="row mb-3">
+                    <div className="col-md-12">
                       <p><strong>Reference:</strong> {generatedToken.reference}</p>
                     </div>
                   </div>
                   
                   <div className="alert alert-info mt-4">
+                    <h6 className="mb-2">Gas Volume Information:</h6>
+                    <p className="mb-2 small">
+                      <strong>Conversion:</strong> 1 cubic meter = 510 kg of gas<br/>
+                      <strong>Your purchase:</strong> {generatedToken.units} kg = {generatedToken.cubicMeters || calculateCubicMeters(parseFloat(generatedToken.units))} cubic meters
+                    </p>
                     <h6 className="mb-2">How to use your token:</h6>
                     <ol className="mb-0 small">
                       <li>Press the 'Enter' button on your meter</li>
@@ -422,7 +446,21 @@ function CustomerPaymentDashboardContent() {
                     </div>
                   </div>
                   
+                  <div className="row mb-3">
+                    <div className="col-md-6">
+                      <p><strong>Volume (Cubic Meters):</strong> {generatedToken.cubicMeters || calculateCubicMeters(parseFloat(generatedToken.units))} m³</p>
+                    </div>
+                    <div className="col-md-6">
+                      <p><strong>Price per KG:</strong> ₦{pricePerKg}</p>
+                    </div>
+                  </div>
+                  
                   <div className="alert alert-info mt-4">
+                    <h6 className="mb-2">Gas Volume Information:</h6>
+                    <p className="mb-2 small">
+                      <strong>Conversion:</strong> 1 cubic meter = 510 kg of gas<br/>
+                      <strong>Your purchase:</strong> {generatedToken.units} kg = {generatedToken.cubicMeters || calculateCubicMeters(parseFloat(generatedToken.units))} cubic meters
+                    </p>
                     <h6 className="mb-2">How to use your token:</h6>
                     <ol className="mb-0 small">
                       <li>Press the 'Enter' button on your meter</li>
@@ -474,7 +512,9 @@ function CustomerPaymentDashboardContent() {
             <div>
               <strong>Current Price:</strong> ₦{pricePerKg} per KG
               <br />
-              <small>Example: ₦{pricePerKg} = 1.0 KG, ₦{(pricePerKg * 1.5).toFixed(2)} = 1.5 KG</small>
+              <small>Example: ₦{pricePerKg} = 1.0 KG ({calculateCubicMeters(1)} m³), ₦{(pricePerKg * 1.5).toFixed(2)} = 1.5 KG ({calculateCubicMeters(1.5)} m³)</small>
+              <br />
+              <small className="text-muted">Conversion: 510 kg = 1 cubic meter</small>
             </div>
           </div>
         </div>
@@ -517,9 +557,10 @@ function CustomerPaymentDashboardContent() {
               </div>
             </div>
             <div className="mt-3 p-3 bg-light rounded">
-              <h6>Pricing Information</h6>
+              <h6>Pricing & Volume Information</h6>
               <p className="mb-1"><strong>Price per KG:</strong> ₦{pricePerKg}</p>
-              <p className="mb-0"><strong>Calculation:</strong> Amount (₦) / {pricePerKg} = Units (KG)</p>
+              <p className="mb-1"><strong>Volume Conversion:</strong> 510 kg = 1 cubic meter</p>
+              <p className="mb-0"><strong>Calculation:</strong> Amount (₦) / {pricePerKg} = Units (KG) / 510 = Volume (m³)</p>
             </div>
           </div>
         </div>
@@ -554,42 +595,51 @@ function CustomerPaymentDashboardContent() {
                         <th>Date</th>
                         <th>Amount</th>
                         <th>Units (KG)</th>
+                        <th>Volume (m³)</th>
                         <th>Status</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {payments.map((payment) => (
-                        <tr key={payment.id || payment._id}>
-                          <td>
-                            {new Date(payment.created_at || payment.createdAt).toLocaleDateString()}
-                          </td>
-                          <td>
-                            ₦{(payment.metadata?.nairaAmount || payment.amount).toLocaleString()}
-                          </td>
-                          <td>
-                            {payment.metadata?.units 
-                              ? `${payment.metadata.units} KG`
-                              : ((payment.metadata?.nairaAmount || payment.amount) / pricePerKg).toFixed(2) + ' KG'}
-                          </td>
-                          <td>
-                            <span className={`badge ${payment.status === "success" ? "bg-success" : "bg-warning"}`}>
-                              {payment.status}
-                            </span>
-                          </td>
-                          <td>
-                            {payment.status === "success" && (
-                              <button
-                                className="btn btn-sm btn-outline-primary"
-                                onClick={() => handleViewToken(payment)}
-                                title="View Token"
-                              >
-                                <i className="fas fa-print me-1"></i> Print
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {payments.map((payment) => {
+                        const units = payment.metadata?.units 
+                          ? parseFloat(payment.metadata.units)
+                          : (payment.metadata?.nairaAmount || payment.amount) / pricePerKg;
+                        const cubicMeters = calculateCubicMeters(units);
+                        
+                        return (
+                          <tr key={payment.id || payment._id}>
+                            <td>
+                              {new Date(payment.created_at || payment.createdAt).toLocaleDateString()}
+                            </td>
+                            <td>
+                              ₦{(payment.metadata?.nairaAmount || payment.amount).toLocaleString()}
+                            </td>
+                            <td>
+                              {units.toFixed(2)} KG
+                            </td>
+                            <td>
+                              {cubicMeters} m³
+                            </td>
+                            <td>
+                              <span className={`badge ${payment.status === "success" ? "bg-success" : "bg-warning"}`}>
+                                {payment.status}
+                              </span>
+                            </td>
+                            <td>
+                              {payment.status === "success" && (
+                                <button
+                                  className="btn btn-sm btn-outline-primary"
+                                  onClick={() => handleViewToken(payment)}
+                                  title="View Token"
+                                >
+                                  <i className="fas fa-print me-1"></i> Print
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

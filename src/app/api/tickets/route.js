@@ -7,11 +7,11 @@ export async function GET(req) {
   try {
     await connectDB();
     const { searchParams } = new URL(req.url);
-    const email = searchParams.get("email"); // fetch email from query
+    const email = searchParams.get("email");
 
     let filter = {};
     if (email) {
-      filter.created_by = email.toLowerCase().trim(); // only tickets by this email
+      filter.created_by = email.toLowerCase().trim();
     }
 
     const tickets = await SupportTicket.find(filter).lean();
@@ -42,14 +42,15 @@ export async function POST(request) {
   try {
     await connectDB();
     const body = await request.json();
-    const { _id, created_by, meter_id, status, ...cleanBody } = body;
+    const { _id, created_by, meter_id, status, priority, ...cleanBody } = body;
 
-    // Always ensure created_by and meter_id are set, and default status to Pending
+    // Always ensure created_by and meter_id are set, and default status and priority
     const ticket = await SupportTicket.create({
       ...cleanBody,
+      priority: priority || "Low",
       created_by: created_by || "anonymous",
       meter_id: meter_id || "Not assigned",
-      status: status || "Pending", // <-- Always default to Pending if not set
+      status: status || "Pending",
     });
 
     return NextResponse.json({ success: true, ticket }, { status: 201 });
@@ -63,8 +64,8 @@ export async function PUT(request) {
   try {
     await connectDB();
     const body = await request.json();
-    const { id, _id, status, ...updateData } = body;
-    const ticketId = id || _id; // support both id and _id for flexibility
+    const { id, _id, status, priority, ...updateData } = body;
+    const ticketId = id || _id;
 
     if (!ticketId) {
       return NextResponse.json({ error: "Ticket ID is required" }, { status: 400 });
@@ -75,9 +76,11 @@ export async function PUT(request) {
       updateData.status = "Resolved";
       updateData.closedAt = new Date();
     }
-    // Allow status update and any other updates
     if (status && status !== "Resolved") {
       updateData.status = status;
+    }
+    if (priority) {
+      updateData.priority = priority;
     }
 
     const ticket = await SupportTicket.findByIdAndUpdate(

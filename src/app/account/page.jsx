@@ -19,7 +19,7 @@ export default function AccountPage() {
   const [formData, setFormData] = useState({
     customerId: "",
     meterId: "",
-    site: "",
+    site: "Headquarter",
     tariffId: "",
     remark: "",
     company: "Noretek Energy",

@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import connectDB from "@/lib/mongodb";
 import CustomerTable from "@/models/CustomerTable";
 
+
 const JWT_SECRET = process.env.JWT_SECRET || "supersecret"; // keep in .env
 
 // CREATE Customer (Signup)
@@ -21,8 +22,8 @@ export async function POST(req) {
       role,
       property_id,
       unit_id,
-      certifiName, // now optional
-      certifiNo,   // now optional
+      certifiName,
+      certifiNo,
     } = body;
 
     if (
@@ -70,9 +71,12 @@ export async function POST(req) {
       role,
       certifiName: certifiName || "",
       certifiNo: certifiNo || "",
-      propertyName: property_id, // 👈 stored as ObjectId
-      propertyUnit: unit_id,     // 👈 stored as ObjectId
+      propertyName: property_id,
+      propertyUnit: unit_id,
     });
+
+    // Mark the property unit as assigned!
+    await PropertyUnit.findByIdAndUpdate(unit_id, { assigned: true });
 
     // Generate JWT
     const token = jwt.sign(

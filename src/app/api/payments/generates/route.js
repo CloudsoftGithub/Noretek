@@ -4,6 +4,14 @@ import connectDB from "@/lib/mongodb";
 import Payment from "@/models/Payment";
 import Token from "@/models/Token";
 
+// Conversion factor: 510 kg = 1 cubic meter
+const KG_PER_CUBIC_METER = 510;
+
+// Helper function to calculate cubic meters from kg
+const calculateCubicMeters = (kg) => {
+  return (kg / KG_PER_CUBIC_METER).toFixed(3);
+};
+
 export async function POST(request) {
   await connectDB();
 
@@ -29,11 +37,15 @@ export async function POST(request) {
     // ✅ Check if token already exists
     const existingToken = await Token.findOne({ reference });
     if (existingToken) {
+      const units = parseFloat(existingToken.units || '0');
+      const cubicMeters = calculateCubicMeters(units);
+      
       return NextResponse.json({
         success: true,
         token: existingToken.token,
         meterNumber: existingToken.meter_number,
         units: existingToken.units,
+        cubicMeters: cubicMeters,
         amount: existingToken.amount,
         reference,
         message: "Token already generated",
@@ -42,8 +54,9 @@ export async function POST(request) {
     }
 
     // ✅ Generate new token
-    const ratePerKwh = 55;
-    const units = (amount / ratePerKwh).toFixed(2);
+    const ratePerKg = Number(payment.metadata?.pricePerKg) || 1500;
+    const units = (amount / ratePerKg).toFixed(2);
+    const cubicMeters = calculateCubicMeters(parseFloat(units));
     const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
 
     let token;
@@ -60,8 +73,10 @@ export async function POST(request) {
           meter_number: meterNumber,
           amount,
           units,
+          cubicMeters,
           token,
           user_id: payment.user_id,
+          pricePerKg: ratePerKg,
           expires_at: expiresAt,
         });
 
@@ -72,8 +87,11 @@ export async function POST(request) {
           token,
           meterNumber,
           units,
+          cubicMeters,
           amount,
           reference,
+          pricePerKg: ratePerKg,
+          conversionInfo: `${KG_PER_CUBIC_METER} kg = 1 cubic meter`,
           expiresAt: expiresAt.toISOString(),
         });
       } catch (error) {

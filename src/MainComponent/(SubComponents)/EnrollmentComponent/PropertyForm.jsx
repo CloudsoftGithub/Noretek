@@ -19,6 +19,11 @@ export default function PropertyForm() {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  // 🔍 Filters
+  const [propertyNameFilter, setPropertyNameFilter] = useState("");
+  const [propertyDateFilter, setPropertyDateFilter] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+
   // ✅ Set captured_by from logged-in user
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -52,9 +57,7 @@ export default function PropertyForm() {
       const data = await res.json();
 
       // Sort by _id ascending
-      const sortedData = [...data].sort((a, b) =>
-        a._id.localeCompare(b._id)
-      );
+      const sortedData = [...data].sort((a, b) => a._id.localeCompare(b._id));
       setProperties(sortedData);
     } catch (error) {
       showError("Failed to fetch properties");
@@ -85,7 +88,7 @@ export default function PropertyForm() {
         });
         showSuccess("✅ Property added successfully!");
       }
-      
+
       setForm({
         owner_name: "",
         owner_gsm: "",
@@ -119,7 +122,7 @@ export default function PropertyForm() {
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this property?"))
       return;
-    
+
     try {
       await fetch("/api/property", {
         method: "DELETE",
@@ -133,6 +136,34 @@ export default function PropertyForm() {
     }
   };
 
+  // ✅ Filtered + searched data
+  const filteredProperties = properties.filter((p) => {
+    const matchesName = p.property_name
+      ?.toLowerCase()
+      .includes(propertyNameFilter.toLowerCase());
+
+    const matchesDate = propertyDateFilter
+      ? new Date(p.date_captured).toLocaleDateString() ===
+        new Date(propertyDateFilter).toLocaleDateString()
+      : true;
+
+    const matchesSearch = searchTerm
+      ? [
+          p.owner_name,
+          p.owner_gsm,
+          p.property_name,
+          p.property_location,
+          p.property_address,
+          p.captured_by,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())
+      : true;
+
+    return matchesName && matchesDate && matchesSearch;
+  });
+
   return (
     <div className="container mt-5">
       <h3 className="mb-4 text-center titleColor">Property Management</h3>
@@ -142,9 +173,9 @@ export default function PropertyForm() {
         <div className="alert alert-success alert-dismissible fade show">
           <i className="bi bi-check-circle-fill me-2"></i>
           {successMessage}
-          <button 
-            type="button" 
-            className="btn-close" 
+          <button
+            type="button"
+            className="btn-close"
             onClick={() => setSuccessMessage("")}
           ></button>
         </div>
@@ -155,9 +186,9 @@ export default function PropertyForm() {
         <div className="alert alert-danger alert-dismissible fade show">
           <i className="bi bi-exclamation-triangle-fill me-2"></i>
           {errorMessage}
-          <button 
-            type="button" 
-            className="btn-close" 
+          <button
+            type="button"
+            className="btn-close"
             onClick={() => setErrorMessage("")}
           ></button>
         </div>
@@ -215,7 +246,7 @@ export default function PropertyForm() {
                 />
               </div>
 
-              {/* Date Captured (Default = Today) */}
+              {/* Date Captured */}
               <div className="col-md-6 mb-3">
                 <label className="form-label">
                   <i className="bi bi-calendar me-1"></i>
@@ -232,13 +263,17 @@ export default function PropertyForm() {
               </div>
             </div>
             <button type="submit" className="btn backgro w-100">
-              <i className={`bi ${editId ? 'bi-arrow-clockwise' : 'bi-plus-circle'} me-2`}></i>
+              <i
+                className={`bi ${
+                  editId ? "bi-arrow-clockwise" : "bi-plus-circle"
+                } me-2`}
+              ></i>
               {editId ? "Update Property" : "Add Property"}
             </button>
-            
+
             {editId && (
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="btn btn-secondary w-100 mt-2"
                 onClick={() => {
                   setEditId(null);
@@ -262,18 +297,47 @@ export default function PropertyForm() {
         </div>
       </div>
 
+      {/* Filters & Search Bar */}
+      <div className="card mb-3 shadow-sm">
+        <div className="card-body row">
+          <div className="col-md-4 mb-2">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="Filter by Property Name"
+              value={propertyNameFilter}
+              onChange={(e) => setPropertyNameFilter(e.target.value)}
+            />
+          </div>
+          <div className="col-md-4 mb-2">
+            <input
+              type="date"
+              className="form-control"
+              value={propertyDateFilter}
+              onChange={(e) => setPropertyDateFilter(e.target.value)}
+            />
+          </div>
+          <div className="col-md-4 mb-2">
+            <input
+              type="text"
+              className="form-control"
+              placeholder="🔍 Search across all fields"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Table */}
       {showTable && (
         <div className="card shadow-sm border-0">
           <div className="card-header backgro d-flex justify-content-between align-items-center">
             <span className="fw-bold">
               <i className="bi bi-list-ul me-2"></i>
-              Properties List ({properties.length})
+              Properties List ({filteredProperties.length})
             </span>
-            <button 
-              className="btn btn-sm btn-light"
-              onClick={fetchProperties}
-            >
+            <button className="btn btn-sm btn-light" onClick={fetchProperties}>
               <i className="bi bi-arrow-clockwise"></i> Refresh
             </button>
           </div>
@@ -294,8 +358,8 @@ export default function PropertyForm() {
                   </tr>
                 </thead>
                 <tbody>
-                  {properties.length > 0 ? (
-                    properties.map((p, index) => (
+                  {filteredProperties.length > 0 ? (
+                    filteredProperties.map((p, index) => (
                       <tr key={p._id}>
                         <td>{index + 1}</td>
                         <td>{p.owner_name}</td>
@@ -329,7 +393,7 @@ export default function PropertyForm() {
                     <tr>
                       <td colSpan="9" className="text-center py-4">
                         <i className="bi bi-inbox display-4 text-muted d-block mb-2"></i>
-                        No properties found. Add your first property above.
+                        No properties found.
                       </td>
                     </tr>
                   )}

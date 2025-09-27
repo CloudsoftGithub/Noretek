@@ -21,13 +21,12 @@ export default function CustomerSignUp() {
     role: "Customer",
     property_id: "",
     unit_id: "",
-    certificate_name: "",
-    certificate_number: "",
-    // These will be auto-populated
+    certifiName: "",
+    certifiNo: "",
     property_name: "",
     unit_description: "",
     blockno: "",
-    meter_id: ""
+    meter_id: "",
   });
 
   const showSuccess = (message) => {
@@ -42,36 +41,80 @@ export default function CustomerSignUp() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm(prev => ({ ...prev, [name]: value }));
+    setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Auto-populate property details when property is selected
   useEffect(() => {
     if (form.property_id) {
-      const selectedProperty = uniqueProperties.find(p => p._id === form.property_id);
+      const selectedProperty = uniqueProperties.find((p) => p._id === form.property_id);
       if (selectedProperty) {
-        setForm(prev => ({
+        setForm((prev) => ({
           ...prev,
-          property_name: selectedProperty.property_name || ""
+          property_name: selectedProperty.property_name || "",
         }));
       }
     }
   }, [form.property_id, uniqueProperties]);
 
-  // Auto-populate unit details when unit is selected
   useEffect(() => {
     if (form.unit_id) {
-      const selectedUnit = filteredUnits.find(u => u._id === form.unit_id);
+      const selectedUnit = filteredUnits.find((u) => u._id === form.unit_id);
       if (selectedUnit) {
-        setForm(prev => ({
+        setForm((prev) => ({
           ...prev,
           unit_description: selectedUnit.unit_description || "",
           blockno: selectedUnit.blockno || "",
-          meter_id: selectedUnit.meter_id || ""
+          meter_id: selectedUnit.meter_id || "",
         }));
       }
     }
   }, [form.unit_id, filteredUnits]);
+
+  // Fetch property units
+  const fetchUnits = async () => {
+    try {
+      const res = await fetch("/api/property_unit");
+      const data = await res.json();
+
+      setUnits(data);
+
+      const uniqueProps = [
+        ...new Map(
+          data
+            .filter((u) => u.property_id)
+            .map((u) => [u.property_id._id, u.property_id])
+        ).values(),
+      ];
+      setUniqueProperties(uniqueProps);
+      showSuccess("📋 Properties and units loaded successfully");
+    } catch (err) {
+      console.error("Error fetching units:", err);
+      showError("❌ Failed to load properties and units");
+    }
+  };
+
+  useEffect(() => {
+    fetchUnits();
+  }, []);
+
+  useEffect(() => {
+    if (!form.property_id) {
+      setFilteredUnits([]);
+      setForm((prev) => ({ ...prev, unit_id: "", property_name: "" }));
+      return;
+    }
+
+    const filtered = units.filter((u) => u.property_id && u.property_id._id === form.property_id);
+    setFilteredUnits(filtered);
+
+    setForm((prev) => ({
+      ...prev,
+      unit_id: "",
+      unit_description: "",
+      blockno: "",
+      meter_id: "",
+    }));
+  }, [form.property_id, units]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -79,15 +122,14 @@ export default function CustomerSignUp() {
     setErrorMessage("");
     setIsSubmitting(true);
 
-    // Validation
     if (form.password !== form.confirmPassword) {
       showError("❌ Passwords do not match");
       setIsSubmitting(false);
       return;
     }
 
-    if (form.password.length < 6) {
-      showError("❌ Password must be at least 6 characters long");
+    if (form.password.length < 4) {
+      showError("❌ Password must be at least 4 characters long");
       setIsSubmitting(false);
       return;
     }
@@ -100,11 +142,9 @@ export default function CustomerSignUp() {
       });
 
       const data = await res.json();
-      
+
       if (data.success) {
         showSuccess("✅ Signup successful! ");
-        
-        // Reset form
         setForm({
           name: "",
           email: "",
@@ -115,16 +155,20 @@ export default function CustomerSignUp() {
           role: "Customer",
           property_id: "",
           unit_id: "",
-          certificate_name: "",
-          certificate_number: "",
+          certifiName: "",
+          certifiNo: "",
           property_name: "",
           unit_description: "",
           blockno: "",
-          meter_id: ""
+          meter_id: "",
         });
 
-        // Redirect to login after 3 seconds
-       
+        // Refetch units so assigned unit is removed immediately
+        fetchUnits();
+
+        setTimeout(() => {
+          router.push("/enrollmentOfficer");
+        }, 3000);
       } else {
         showError(`❌ ${data.message || "Error occurred during signup"}`);
       }
@@ -255,7 +299,7 @@ export default function CustomerSignUp() {
                 <div className="col-md-6 mb-3">
                   <label className="fw-bold form-label">
                     <i className="bi bi-phone me-1"></i>
-                    Phone Number:
+                    Phone No:
                   </label>
                   <input
                     type="text"
@@ -264,7 +308,7 @@ export default function CustomerSignUp() {
                     value={form.phone}
                     onChange={handleChange}
                     required
-                    placeholder="Enter your phone number"
+                    placeholder="Enter your phone no"
                   />
                 </div>
 
@@ -335,43 +379,43 @@ export default function CustomerSignUp() {
             </div>
           </div>
 
-          {/* Certificate Information Section */}
+          {/* Certifi Information Section */}
           <div className="card mb-4 border-0 shadow-sm">
             <div className="card-header backgro">
               <i className="bi bi-file-earmark-text me-2"></i>
-              Certificate Information
+              Certifi Information
             </div>
             <div className="card-body">
               <div className="row">
                 <div className="col-md-6 mb-3">
                   <label className="fw-bold form-label">
                     <i className="bi bi-file-text me-1"></i>
-                    Certificate Name:
+                    Certifi Name:
                   </label>
                   <input
                     type="text"
                     className="form-control shadow-none p-2"
-                    name="certificate_name"
-                    value={form.certificate_name}
+                    name="certifiName"
+                    value={form.certifiName}
                     onChange={handleChange}
                     required
-                    placeholder="Enter certificate name"
+                    placeholder="Enter certifi name"
                   />
                 </div>
 
                 <div className="col-md-6 mb-3">
                   <label className="fw-bold form-label">
                     <i className="bi bi-hash me-1"></i>
-                    Certificate Number:
+                    Certifi No:
                   </label>
                   <input
                     type="text"
                     className="form-control shadow-none p-2"
-                    name="certificate_number"
-                    value={form.certificate_number}
+                    name="certifiNo"
+                    value={form.certifiNo}
                     onChange={handleChange}
                     required
-                    placeholder="Enter certificate number"
+                    placeholder="Enter certifi no"
                   />
                 </div>
               </div>

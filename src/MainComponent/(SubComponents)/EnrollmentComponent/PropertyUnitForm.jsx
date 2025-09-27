@@ -359,7 +359,7 @@ export default function PropertyUnitForm() {
                   onChange={handleChange}
                   disabled={loadingMeters}
                 >
-                  <option value="">Select Meter (Optional)</option>
+                  <option value="">Select Meter </option>
                   
                   {/* Available Meters */}
                   {availableMeters.length > 0 && (

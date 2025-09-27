@@ -2,13 +2,35 @@
 import connectDB from "@/lib/mongodb";
 import PropertyUnit from "@/models/PropertyUnit";
 
-// ✅ GET all units
+// Helper: natural sort for Shop N
+function unitNaturalSort(a, b) {
+  // Sort by blockno (alphabetically), then by unit_description with number-aware sort
+  // Example: Block A Shop 1, Block A Shop 2, Block B Shop 1
+  if (a.blockno < b.blockno) return -1;
+  if (a.blockno > b.blockno) return 1;
+  // Natural sort for Shop 10 > Shop 2
+  const regex = /(\D+)(\d+)/;
+  const aMatch = a.unit_description.match(regex);
+  const bMatch = b.unit_description.match(regex);
+  if (aMatch && bMatch) {
+    if (aMatch[1] !== bMatch[1]) {
+      return aMatch[1].localeCompare(bMatch[1]);
+    }
+    return parseInt(aMatch[2]) - parseInt(bMatch[2]);
+  }
+  return a.unit_description.localeCompare(b.unit_description);
+}
+
+// ✅ GET unassigned units, sorted as requested
 export async function GET() {
   try {
     await connectDB();
-    const units = await PropertyUnit.find()
+    let units = await PropertyUnit.find({ assigned: { $ne: true } })
       .populate("property_id", "property_name")
-      .sort({ createdAt: -1 });
+      .lean();
+
+    // Sort: Block A Shop 1, Block A Shop 2, Block B Shop 1, Block B Shop 2, etc.
+    units = units.sort(unitNaturalSort);
 
     return new Response(JSON.stringify(units), { status: 200 });
   } catch (err) {
