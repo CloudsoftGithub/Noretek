@@ -3,7 +3,7 @@ import AdminForm from "@/MainComponent/(SubComponents)/AdminComponent/AdminForm"
 import AdminTables from "@/MainComponent/(SubComponents)/AdminComponent/AdminTable";
 import { useState, useEffect } from "react";
 import logo from "./logo.png";
-
+import { useRouter } from "next/navigation";
 export default function Dashboard() {
   const [activeContent, setActiveContent] = useState("Dashboard");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -11,7 +11,7 @@ export default function Dashboard() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [dashboardData, setDashboardData] = useState(null);
-
+  const router = useRouter();
   // State for Manage Admin
   const [customers, setCustomers] = useState([]);
   const [customerPage, setCustomerPage] = useState(1);
@@ -42,6 +42,7 @@ export default function Dashboard() {
     setIsAuthenticated(false);
     setUsername("");
     setPassword("");
+   
   };
 
   const sidebarMenu = [
@@ -335,9 +336,11 @@ export default function Dashboard() {
                                   {p.status}
                                 </span>
                               </td>
-                              <td>
-                                {new Date(p.createdAt).toLocaleDateString()}
-                              </td>
+                               <td>
+                                  {p.created_at
+                                    ? new Date(p.created_at).toLocaleDateString()
+                                    : "N/A"}
+                                </td>
                             </tr>
                           ))
                         ) : (
@@ -386,8 +389,10 @@ export default function Dashboard() {
                                 </span>
                               </td>
                               <td>
-                                {new Date(t.createdAt).toLocaleDateString()}
-                              </td>
+                                  {t.created_at
+                                    ? new Date(t.created_at).toLocaleDateString()
+                                    : "N/A"}
+                                </td>
                             </tr>
                           ))
                         ) : (
@@ -505,8 +510,12 @@ export default function Dashboard() {
         <div className="d-flex align-items-center gap-3">
           <span className="fw-semibold">Super Admin</span>
           <button
-            onClick={handleLogout}
+           
             className="btn btn-sm btn-outline-danger"
+              onClick={() => {
+              localStorage.clear();
+              router.push("/");
+            }}
           >
             Logout
           </button>

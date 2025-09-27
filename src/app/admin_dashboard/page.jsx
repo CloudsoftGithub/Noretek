@@ -230,7 +230,7 @@ export default function AdminDashboard() {
             className="btn btn-outline-danger btn-sm"
             onClick={() => {
               localStorage.clear();
-              router.push("/stafflogin");
+              router.push("/");
             }}
           >
             Logout
