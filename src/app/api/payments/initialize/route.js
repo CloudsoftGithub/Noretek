@@ -36,7 +36,7 @@ export async function POST(request) {
     // Get the base URL dynamically - this works in both dev and production
     const baseUrl = process.env.NEXTAUTH_URL || 
                    (process.env.NODE_ENV === 'production' 
-                     ? 'https://noretek-1.onrender.com'  // Replace with your actual domain
+                     ? 'https://noretek-l4z4.onrender.com'  // Replace with your actual domain
                      : 'http://localhost:3000');
 
     const payload = {
