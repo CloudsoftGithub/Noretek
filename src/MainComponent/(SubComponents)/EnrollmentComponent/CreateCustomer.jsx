@@ -7,6 +7,7 @@ export default function CustomerSignUp() {
   const [units, setUnits] = useState([]);
   const [filteredUnits, setFilteredUnits] = useState([]);
   const [uniqueProperties, setUniqueProperties] = useState([]);
+  const [existingCustomers, setExistingCustomers] = useState([]);
   const [submitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -29,6 +30,10 @@ export default function CustomerSignUp() {
     meter_id: "",
   });
 
+  const [validationErrors, setValidationErrors] = useState({
+    property_unit: ""
+  });
+
   const showSuccess = (message) => {
     setSuccessMessage(message);
     setTimeout(() => setSuccessMessage(""), 5000);
@@ -42,7 +47,64 @@ export default function CustomerSignUp() {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    
+    // Clear validation errors when user changes input
+    if (name === "property_id" || name === "unit_id") {
+      setValidationErrors(prev => ({ ...prev, property_unit: "" }));
+    }
   };
+
+  // Check for duplicate property-unit combination
+  const checkDuplicatePropertyUnit = (propertyId, unitId) => {
+    if (!propertyId || !unitId) return false;
+    
+    const duplicate = existingCustomers.find(customer => 
+      customer.propertyName?._id === propertyId && 
+      customer.propertyUnit?._id === unitId
+    );
+    
+    return !!duplicate;
+  };
+
+  // Fetch existing customers to check for duplicates
+  const fetchExistingCustomers = async () => {
+    try {
+      const res = await fetch("/api/customer-signup-api");
+      const data = await res.json();
+      if (data.success) {
+        setExistingCustomers(data.customers || []);
+      }
+    } catch (err) {
+      console.error("Error fetching existing customers:", err);
+    }
+  };
+
+  // Fetch property units
+  const fetchUnits = async () => {
+    try {
+      const res = await fetch("/api/property_unit");
+      const data = await res.json();
+
+      setUnits(data);
+
+      const uniqueProps = [
+        ...new Map(
+          data
+            .filter((u) => u.property_id)
+            .map((u) => [u.property_id._id, u.property_id])
+        ).values(),
+      ];
+      setUniqueProperties(uniqueProps);
+    } catch (err) {
+      console.error("Error fetching units:", err);
+      showError("❌ Failed to load properties and units");
+    }
+  };
+
+  useEffect(() => {
+    fetchUnits();
+    fetchExistingCustomers();
+  }, []);
 
   useEffect(() => {
     if (form.property_id) {
@@ -66,41 +128,25 @@ export default function CustomerSignUp() {
           blockno: selectedUnit.blockno || "",
           meter_id: selectedUnit.meter_id || "",
         }));
+
+        // Check for duplicate when unit is selected
+        if (checkDuplicatePropertyUnit(form.property_id, form.unit_id)) {
+          setValidationErrors(prev => ({
+            ...prev,
+            property_unit: "❌ This property unit is already assigned to another customer. Please select a different unit."
+          }));
+        } else {
+          setValidationErrors(prev => ({ ...prev, property_unit: "" }));
+        }
       }
     }
-  }, [form.unit_id, filteredUnits]);
-
-  // Fetch property units
-  const fetchUnits = async () => {
-    try {
-      const res = await fetch("/api/property_unit");
-      const data = await res.json();
-
-      setUnits(data);
-
-      const uniqueProps = [
-        ...new Map(
-          data
-            .filter((u) => u.property_id)
-            .map((u) => [u.property_id._id, u.property_id])
-        ).values(),
-      ];
-      setUniqueProperties(uniqueProps);
-      showSuccess("📋 Properties and units loaded successfully");
-    } catch (err) {
-      console.error("Error fetching units:", err);
-      showError("❌ Failed to load properties and units");
-    }
-  };
-
-  useEffect(() => {
-    fetchUnits();
-  }, []);
+  }, [form.unit_id, form.property_id, filteredUnits]);
 
   useEffect(() => {
     if (!form.property_id) {
       setFilteredUnits([]);
       setForm((prev) => ({ ...prev, unit_id: "", property_name: "" }));
+      setValidationErrors(prev => ({ ...prev, property_unit: "" }));
       return;
     }
 
@@ -114,22 +160,59 @@ export default function CustomerSignUp() {
       blockno: "",
       meter_id: "",
     }));
+    setValidationErrors(prev => ({ ...prev, property_unit: "" }));
   }, [form.property_id, units]);
+
+  const validateForm = () => {
+    const errors = {};
+
+    // Check for duplicate property-unit combination
+    if (checkDuplicatePropertyUnit(form.property_id, form.unit_id)) {
+      errors.property_unit = "❌ This property unit is already assigned to another customer. Please select a different unit.";
+    }
+
+    // Password validation
+    if (form.password.length < 6) {
+      errors.password = "❌ Password must be at least 6 characters long";
+    }
+
+    if (form.password !== form.confirmPassword) {
+      errors.confirmPassword = "❌ Passwords do not match";
+    }
+
+    // Email validation
+    if (!form.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+      errors.email = "❌ Please enter a valid email address";
+    }
+
+    // Phone validation (basic)
+    if (!form.phone.match(/^[\d\s\-\+\(\)]{10,}$/)) {
+      errors.phone = "❌ Please enter a valid phone number";
+    }
+
+    return errors;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSuccessMessage("");
     setErrorMessage("");
     setIsSubmitting(true);
+    setValidationErrors({ property_unit: "" });
 
-    if (form.password !== form.confirmPassword) {
-      showError("❌ Passwords do not match");
+    // Validate form
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
       setIsSubmitting(false);
       return;
     }
 
-    if (form.password.length < 4) {
-      showError("❌ Password must be at least 4 characters long");
+    // Final duplicate check before submission
+    if (checkDuplicatePropertyUnit(form.property_id, form.unit_id)) {
+      setValidationErrors({
+        property_unit: "❌ This property unit is already assigned to another customer. Please select a different unit."
+      });
       setIsSubmitting(false);
       return;
     }
@@ -144,7 +227,7 @@ export default function CustomerSignUp() {
       const data = await res.json();
 
       if (data.success) {
-        showSuccess("✅ Signup successful! ");
+        showSuccess("✅ Customer registered successfully! Redirecting...");
         setForm({
           name: "",
           email: "",
@@ -163,14 +246,15 @@ export default function CustomerSignUp() {
           meter_id: "",
         });
 
-        // Refetch units so assigned unit is removed immediately
+        // Refetch units and customers to update the lists
         fetchUnits();
+        fetchExistingCustomers();
 
         setTimeout(() => {
           router.push("/enrollmentOfficer");
-        }, 3000);
+        }, 2000);
       } else {
-        showError(`❌ ${data.message || "Error occurred during signup"}`);
+        showError(`❌ ${data.message || "Error occurred during registration"}`);
       }
     } catch (err) {
       console.error(err);
@@ -180,46 +264,8 @@ export default function CustomerSignUp() {
     }
   };
 
-  // Fetch property units
-  useEffect(() => {
-    const fetchUnits = async () => {
-      try {
-        const res = await fetch("/api/property_unit");
-        const data = await res.json();
-
-        setUnits(data);
-
-        const uniqueProps = [
-          ...new Map(
-            data
-              .filter((u) => u.property_id)
-              .map((u) => [u.property_id._id, u.property_id])
-          ).values(),
-        ];
-        setUniqueProperties(uniqueProps);
-        showSuccess("📋 Properties and units loaded successfully");
-      } catch (err) {
-        console.error("Error fetching units:", err);
-        showError("❌ Failed to load properties and units");
-      }
-    };
-
-    fetchUnits();
-  }, []);
-
-  useEffect(() => {
-    if (!form.property_id) {
-      setFilteredUnits([]);
-      setForm(prev => ({ ...prev, unit_id: "", property_name: "" }));
-      return;
-    }
-    
-    const filtered = units.filter((u) => u.property_id && u.property_id._id === form.property_id);
-    setFilteredUnits(filtered);
-    
-    // Reset unit selection when property changes
-    setForm(prev => ({ ...prev, unit_id: "", unit_description: "", blockno: "", meter_id: "" }));
-  }, [form.property_id, units]);
+  // Filter available units (only show unassigned ones)
+  const availableUnits = filteredUnits.filter(unit => !unit.assigned);
 
   return (
     <div className="container d-flex justify-content-center align-items-center min-vh-100">
@@ -287,13 +333,18 @@ export default function CustomerSignUp() {
                   </label>
                   <input
                     type="email"
-                    className="form-control shadow-none p-2"
+                    className={`form-control shadow-none p-2 ${validationErrors.email ? 'is-invalid' : ''}`}
                     name="email"
                     value={form.email}
                     onChange={handleChange}
                     required
                     placeholder="Enter your email"
                   />
+                  {validationErrors.email && (
+                    <div className="invalid-feedback d-block">
+                      {validationErrors.email}
+                    </div>
+                  )}
                 </div>
 
                 <div className="col-md-6 mb-3">
@@ -303,13 +354,18 @@ export default function CustomerSignUp() {
                   </label>
                   <input
                     type="text"
-                    className="form-control shadow-none p-2"
+                    className={`form-control shadow-none p-2 ${validationErrors.phone ? 'is-invalid' : ''}`}
                     name="phone"
                     value={form.phone}
                     onChange={handleChange}
                     required
                     placeholder="Enter your phone no"
                   />
+                  {validationErrors.phone && (
+                    <div className="invalid-feedback d-block">
+                      {validationErrors.phone}
+                    </div>
+                  )}
                 </div>
 
                 <div className="col-md-6 mb-3">
@@ -335,7 +391,7 @@ export default function CustomerSignUp() {
                   </label>
                   <input
                     type="password"
-                    className="form-control shadow-none p-2"
+                    className={`form-control shadow-none p-2 ${validationErrors.password ? 'is-invalid' : ''}`}
                     name="password"
                     value={form.password}
                     onChange={handleChange}
@@ -343,6 +399,11 @@ export default function CustomerSignUp() {
                     placeholder="Create a password (min. 6 characters)"
                     minLength="6"
                   />
+                  {validationErrors.password && (
+                    <div className="invalid-feedback d-block">
+                      {validationErrors.password}
+                    </div>
+                  )}
                 </div>
 
                 <div className="col-md-6 mb-3">
@@ -352,7 +413,7 @@ export default function CustomerSignUp() {
                   </label>
                   <input
                     type="password"
-                    className="form-control shadow-none p-2"
+                    className={`form-control shadow-none p-2 ${validationErrors.confirmPassword ? 'is-invalid' : ''}`}
                     name="confirmPassword"
                     value={form.confirmPassword}
                     onChange={handleChange}
@@ -360,6 +421,11 @@ export default function CustomerSignUp() {
                     placeholder="Confirm your password"
                     minLength="6"
                   />
+                  {validationErrors.confirmPassword && (
+                    <div className="invalid-feedback d-block">
+                      {validationErrors.confirmPassword}
+                    </div>
+                  )}
                 </div>
 
                 <div className="col-md-12 mb-3">
@@ -463,26 +529,41 @@ export default function CustomerSignUp() {
                     Property Unit:
                   </label>
                   <select
-                    className="form-select shadow-none p-2"
+                    className={`form-select shadow-none p-2 ${validationErrors.property_unit ? 'is-invalid' : ''}`}
                     name="unit_id"
                     value={form.unit_id}
                     onChange={handleChange}
                     required
                     disabled={!form.property_id}
                   >
-                    <option value="">{form.property_id ? "Select Unit" : "First select a property"}</option>
-                    {filteredUnits.map((u) => (
+                    <option value="">
+                      {form.property_id ? 
+                        (availableUnits.length > 0 ? "Select Unit" : "No available units") : 
+                        "First select a property"}
+                    </option>
+                    {availableUnits.map((u) => (
                       <option key={u._id} value={u._id}>
                         {u.unit_description} - Block {u.blockno}
                         {u.meter_id && ` (Meter: ${u.meter_id})`}
                       </option>
                     ))}
                   </select>
-                  {form.unit_description && (
+                  {validationErrors.property_unit && (
+                    <div className="invalid-feedback d-block">
+                      {validationErrors.property_unit}
+                    </div>
+                  )}
+                  {form.unit_description && !validationErrors.property_unit && (
                     <small className="text-success">
                       <i className="bi bi-check-circle me-1"></i>
                       Selected: {form.unit_description} - Block {form.blockno}
                       {form.meter_id && ` - Meter: ${form.meter_id}`}
+                    </small>
+                  )}
+                  {form.property_id && availableUnits.length === 0 && (
+                    <small className="text-warning">
+                      <i className="bi bi-exclamation-triangle me-1"></i>
+                      No available units for this property. All units are already assigned.
                     </small>
                   )}
                 </div>
@@ -517,7 +598,7 @@ export default function CustomerSignUp() {
           <button
             type="submit"
             className="btn primaryColor w-100 py-3 fw-bold"
-            disabled={submitting}
+            disabled={submitting || !!validationErrors.property_unit}
           >
             {submitting ? (
               <>
@@ -555,6 +636,10 @@ export default function CustomerSignUp() {
         }
         .primaryColor:hover {
           background-color: #0b5ed7;
+        }
+        .primaryColor:disabled {
+          background-color: #6c757d;
+          cursor: not-allowed;
         }
         .titleColor {
           color: #0d6efd;

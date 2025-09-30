@@ -1,162 +1,258 @@
 @import "bootstrap/dist/css/bootstrap.min.css";
 @import "bootstrap-icons";
 
-:root{
-  --testColor:#0b0c27;
-  --hoverColor: #75757a;
-  --softColor:#f1fbff;
-    --praColor: #023e8a;
-  --ppColor: #023e8a;
-}
-*{
-  font-family: poppins;
-}
-body {
-  background-color: var(--softColor);
-}
-
-/*--------------------------------------------------------------
-# MainPage Section
---------------------------------------------------------------*/
-.mainPage {
-  width: 100%;
-  height: 100vh;
-  background: 
-    url("/assets/slider.png") top center no-repeat;
-  background-size: cover;
-}
-
-.mainPage .uper h1 {
-  margin: 0;
-  font-size: 48px;
-  font-weight: 700;
-  color: var(--testColor);
-}
-
-.mainPage .uper h2 {
-  color: var(--testColor);
-  margin: 15px 0 0 0;
-  font-size: 26px;
-}
-.mainPage .uper .img-head {
-  color: var(--testColor);
-  font-size: 26px;
-}
-
-.mainPage .uper .btn-get-started {
-  margin-top: 30px;
-  line-height: 0;
-  padding: 15px 40px;
-  border-radius: 4px;
-  transition: 0.5s;
-  color: var(--lightColor);
-  background: linear-gradient(var(--testColor), var(--softColor));
-  box-shadow: 0px 5px 30px rgba(65, 84, 241, 0.4);
-}
-
-.mainPage .uper .btn-get-started span {
-  font-family: "Nunito", sans-serif;
-  font-weight: 600;
-  font-size: 20px;
-  letter-spacing: 2px;
-}
-
-.mainPage .uper .btn-get-started i {
-  margin-left: 5px;
-  font-size: 18px;
-  transition: 0.3s;
-}
-
-.mainPage .uper .btn-get-started:hover i {
-  transform: translateX(5px);
-}
-
-.mainPage .uper img {
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-  border-bottom-left-radius: 50px;
-  border-bottom-right-radius: 50px;
-}
-.mainPage .uper .hero-img {
-  text-align: right;
-}
-
-@media (min-width: 1024px) {
-  .mainPage {
-    background-attachment: fixed;
-  }
-  .mainPage .uper .hero-img img {
-    height: 85%;
-    width: 100%;
-  }
-}
-
-@media (max-width: 768px) {
-  .mainPage {
-    height: auto;
-    text-align: center;
-    padding: 10px 0 60px 0;
-  }
-  .mainPage .uper img {
-    border-top-right-radius: 10px;
-    border-bottom-left-radius: 20px;
-    border-bottom-right-radius: 20px;
-  }
-  .mainPage .uper .hero-img {
-    text-align: center;
-    margin-top: 10px;
-  }
-
-  .mainPage .uper .hero-img img {
-    width: 100%;
-  }
-
-  .mainPage .uper h1 {
-    margin-top: 20px;
-    font-size: 22px;
-  }
-
-  .mainPage .uper h2 {
-    font-size: 18px;
-  }
-}
-.custom-sidebar {
-  width: 250px;
+/* Dashboard Layout */
+.dashboard-layout {
   min-height: 100vh;
-  background-color: white;
-  border-right: 1px solid #dee2e6;
+  background-color: #f8f9fa;
 }
 
+/* Sidebar */
+.sidebar {
+  width: 280px;
+  background: #2c3e50;
+  color: white;
+  transition: transform 0.3s ease;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+}
+
+.sidebar-header {
+  padding: 1.5rem 1rem;
+  border-bottom: 1px solid #34495e;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0;
+}
+
+.menu-section {
+  margin-bottom: 1rem;
+}
+
+.menu-title {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #bdc3c7;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.menu-item {
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-left: 3px solid transparent;
+  color: white;
+  text-decoration: none;
+}
+
+.menu-item:hover {
+  background: #34495e;
+  border-left-color: #3498db;
+  color: white;
+}
+
+.menu-item.active {
+  background: #34495e;
+  border-left-color: #3498db;
+  color: #3498db;
+}
+
+.menu-item i {
+  font-size: 1.1rem;
+  width: 20px;
+  text-align: center;
+}
+
+.sidebar-footer {
+  padding: 1rem;
+  border-top: 1px solid #34495e;
+  margin-top: auto;
+}
+
+.user-info {
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+/* Topbar */
+.topbar {
+  background: white;
+  padding: 1rem 1.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+}
+
+.sidebar-toggle {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: #2c3e50;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+/* Content Area */
+.content-area {
+  margin-left: 0;
+  min-height: calc(100vh - 80px);
+}
+
+/* Mobile Overlay */
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 999;
+}
+
+/* Mobile Styles */
 @media (max-width: 991.98px) {
-  .custom-sidebar {
-    position: absolute;
-    z-index: 1050;
-    left: -250px;
-    top: 0;
-    height: 100vh;
-    transition: left 0.3s ease-in-out;
+  .sidebar {
+    transform: translateX(-100%);
   }
-
-  .custom-sidebar.open {
-    left: 0;
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .content-area {
+    margin-left: 0 !important;
+    padding: 1rem !important;
+  }
+  
+  .topbar {
+    padding: 1rem;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  /* Improved mobile table styling */
+  .table-responsive {
+    font-size: 0.875rem;
+  }
+  
+  .table th,
+  .table td {
+    padding: 0.5rem;
+    white-space: nowrap;
+  }
+  
+  .login-card {
+    width: 100%;
+    max-width: 350px;
+    margin: 1rem;
   }
 }
 
-/* Optional: can go in your global styles or component styles */
-.custom-sidebar {
-  width: 250px;
+/* Desktop Styles */
+@media (min-width: 992px) {
+  .content-area {
+    margin-left: 280px;
+  }
+  
+  .sidebar {
+    position: fixed;
+  }
 }
 
-.titleColor {
-  color: var(--ppColor) !important;
-  font-weight: 700px;
-
-}.primaryColor {
-  background-color: var(--praColor) !important;
-  color: var(--WhiteColor) !important;
+/* Cards */
+.card {
+  border: none;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border-radius: 8px;
 }
-.primaryColor:hover {
-  background-color: var(--praColor);
-  color: var(--WhiteColor);
-  opacity: 0.8;
+
+.card-title {
+  color: #2c3e50;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* Tables */
+.table-responsive {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table {
+  margin-bottom: 0;
+}
+
+.table th {
+  background: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+/* Button Improvements */
+.btn {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.btn-primary {
+  background: #3498db;
+  border-color: #3498db;
+}
+
+.btn-primary:hover {
+  background: #2980b9;
+  border-color: #2980b9;
+}
+
+/* Animation for mobile menu */
+@keyframes slideIn {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.sidebar.open {
+  animation: slideIn 0.3s ease;
+}
+
+/* Utility classes for text truncation */
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

@@ -4,6 +4,7 @@ import AdminTables from "@/MainComponent/(SubComponents)/AdminComponent/AdminTab
 import { useState, useEffect } from "react";
 import logo from "./logo.png";
 import { useRouter } from "next/navigation";
+
 export default function Dashboard() {
   const [activeContent, setActiveContent] = useState("Dashboard");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -11,22 +12,41 @@ export default function Dashboard() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [dashboardData, setDashboardData] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const router = useRouter();
+
   // State for Manage Admin
   const [customers, setCustomers] = useState([]);
   const [customerPage, setCustomerPage] = useState(1);
-  const [customerPerPage] = useState(5);
+  const [customerPerPage] = useState(10);
 
   // State for Support Tickets
   const [tickets, setTickets] = useState([]);
   const [ticketPage, setTicketPage] = useState(1);
-  const [ticketPerPage] = useState(5);
+  const [ticketPerPage] = useState(10);
 
   // Hardcoded Super Admin Credentials
   const SUPER_ADMIN = {
     username: "super1",
     password: "password",
   };
+
+  // Check screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 992);
+      if (window.innerWidth >= 992) {
+        setSidebarOpen(true);
+      } else {
+        setSidebarOpen(false);
+      }
+    };
+
+    checkScreenSize();
+    window.addEventListener("resize", checkScreenSize);
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, []);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -42,7 +62,19 @@ export default function Dashboard() {
     setIsAuthenticated(false);
     setUsername("");
     setPassword("");
-   
+    localStorage.clear();
+    router.push("/");
+  };
+
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  const handleMenuClick = (key) => {
+    setActiveContent(key);
+    if (isMobile) {
+      setSidebarOpen(false);
+    }
   };
 
   const sidebarMenu = [
@@ -161,7 +193,7 @@ export default function Dashboard() {
                   </tbody>
                 </table>
                 {/* Pagination */}
-                <div className="d-flex justify-content-between">
+                <div className="d-flex justify-content-between align-items-center">
                   <button
                     className="btn btn-sm btn-outline-primary"
                     disabled={customerPage === 1}
@@ -169,7 +201,7 @@ export default function Dashboard() {
                   >
                     Prev
                   </button>
-                  <span>
+                  <span className="text-muted">
                     Page {customerPage} of{" "}
                     {Math.ceil(customers.length / customerPerPage)}
                   </span>
@@ -227,14 +259,17 @@ export default function Dashboard() {
                         <td>{t.category}</td>
                         <td>{t.created_by}</td>
                         <td>{t.meter_id}</td>
-                       <td>new Date(prop.created_at).toLocaleDateString()
-</td>
+                        <td>
+                          {t.created_at
+                            ? new Date(t.created_at).toLocaleDateString()
+                            : "N/A"}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 {/* Pagination */}
-                <div className="d-flex justify-content-between">
+                <div className="d-flex justify-content-between align-items-center">
                   <button
                     className="btn btn-sm btn-outline-primary"
                     disabled={ticketPage === 1}
@@ -242,7 +277,7 @@ export default function Dashboard() {
                   >
                     Prev
                   </button>
-                  <span>
+                  <span className="text-muted">
                     Page {ticketPage} of{" "}
                     {Math.ceil(tickets.length / ticketPerPage)}
                   </span>
@@ -263,192 +298,197 @@ export default function Dashboard() {
       case "Dashboard":
       default:
         return (
-          <div className="container">
+          <div className="container-fluid">
             {/* Totals */}
-            <div className="row g-4 mb-4">
-              <div className="col-md-3">
-                <div className="card shadow-sm text-center">
-                  <div className="card-body">
-                    <h6 className="text-muted">Customers</h6>
-                    <h3>{dashboardData?.totals.totalCustomers || 0}</h3>
+            <div className="row g-3 mb-4">
+              <div className="col-6 col-md-3">
+                <div className="card shadow-sm text-center h-100">
+                  <div className="card-body p-3">
+                    <h6 className="text-muted mb-2">Customers</h6>
+                    <h3 className="mb-0">{dashboardData?.totals.totalCustomers || 0}</h3>
                   </div>
                 </div>
               </div>
-              <div className="col-md-3">
-                <div className="card shadow-sm text-center">
-                  <div className="card-body">
-                    <h6 className="text-muted">Properties</h6>
-                    <h3>{dashboardData?.totals.totalProperties || 0}</h3>
+              <div className="col-6 col-md-3">
+                <div className="card shadow-sm text-center h-100">
+                  <div className="card-body p-3">
+                    <h6 className="text-muted mb-2">Properties</h6>
+                    <h3 className="mb-0">{dashboardData?.totals.totalProperties || 0}</h3>
                   </div>
                 </div>
               </div>
-              <div className="col-md-3">
-                <div className="card shadow-sm text-center">
-                  <div className="card-body">
-                    <h6 className="text-muted">Units</h6>
-                    <h3>{dashboardData?.totals.totalUnits || 0}</h3>
+              <div className="col-6 col-md-3">
+                <div className="card shadow-sm text-center h-100">
+                  <div className="card-body p-3">
+                    <h6 className="text-muted mb-2">Units</h6>
+                    <h3 className="mb-0">{dashboardData?.totals.totalUnits || 0}</h3>
                   </div>
                 </div>
               </div>
-              <div className="col-md-3">
-                <div className="card shadow-sm text-center">
-                  <div className="card-body">
-                    <h6 className="text-muted">Payments</h6>
-                    <h3>{dashboardData?.totals.totalPayments || 0}</h3>
+              <div className="col-6 col-md-3">
+                <div className="card shadow-sm text-center h-100">
+                  <div className="card-body p-3">
+                    <h6 className="text-muted mb-2">Payments</h6>
+                    <h3 className="mb-0">{dashboardData?.totals.totalPayments || 0}</h3>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Recent Activity */}
-            <div className="row">
-              <div className="col-md-6">
-                <div className="card shadow-sm">
+            <div className="row g-3">
+              <div className="col-12 col-lg-6">
+                <div className="card shadow-sm h-100">
                   <div className="card-header bg-primary text-white">
                     Recent Payments
                   </div>
-                  <div className="card-body table-responsive">
-                    <table className="table table-sm">
-                      <thead>
-                        <tr>
-                          <th>Reference</th>
-                          <th>Amount</th>
-                          <th>Status</th>
-                          <th>Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dashboardData?.recent.payments?.length > 0 ? (
-                          dashboardData.recent.payments.map((p) => (
-                            <tr key={p._id}>
-                              <td>{p.reference}</td>
-                              <td>₦{p.amount}</td>
-                              <td>
-                                <span
-                                  className={`badge ${
-                                    p.status === "success"
-                                      ? "bg-success"
-                                      : p.status === "pending"
-                                      ? "bg-warning"
-                                      : "bg-danger"
-                                  }`}
-                                >
-                                  {p.status}
-                                </span>
-                              </td>
-                               <td>
+                  <div className="card-body p-0">
+                    <div className="table-responsive">
+                      <table className="table table-sm mb-0">
+                        <thead>
+                          <tr>
+                            <th>Reference</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dashboardData?.recent.payments?.length > 0 ? (
+                            dashboardData.recent.payments.map((p) => (
+                              <tr key={p._id}>
+                                <td className="text-truncate" style={{maxWidth: '100px'}}>{p.reference}</td>
+                                <td>₦{p.amount}</td>
+                                <td>
+                                  <span
+                                    className={`badge ${
+                                      p.status === "success"
+                                        ? "bg-success"
+                                        : p.status === "pending"
+                                        ? "bg-warning"
+                                        : "bg-danger"
+                                    }`}
+                                  >
+                                    {p.status}
+                                  </span>
+                                </td>
+                                <td>
                                   {p.created_at
                                     ? new Date(p.created_at).toLocaleDateString()
                                     : "N/A"}
                                 </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="4" className="text-center text-muted py-3">
+                                No recent payments
+                              </td>
                             </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="4" className="text-center text-muted">
-                              No recent payments
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="col-md-6">
-                <div className="card shadow-sm">
+              <div className="col-12 col-lg-6">
+                <div className="card shadow-sm h-100">
                   <div className="card-header bg-info text-white">
                     Recent Tickets
                   </div>
-                  <div className="card-body table-responsive">
-                    <table className="table table-sm">
-                      <thead>
-                        <tr>
-                          <th>Title</th>
-                          <th>Status</th>
-                          <th>Date</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dashboardData?.recent.tickets?.length > 0 ? (
-                          dashboardData.recent.tickets.map((t) => (
-                            <tr key={t._id}>
-                              <td>{t.title}</td>
-                              <td>
-                                <span
-                                  className={`badge ${
-                                    t.status === "Open"
-                                      ? "bg-warning"
-                                      : t.status === "Resolved"
-                                      ? "bg-success"
-                                      : "bg-secondary"
-                                  }`}
-                                >
-                                  {t.status}
-                                </span>
-                              </td>
-                              <td>
+                  <div className="card-body p-0">
+                    <div className="table-responsive">
+                      <table className="table table-sm mb-0">
+                        <thead>
+                          <tr>
+                            <th>Title</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dashboardData?.recent.tickets?.length > 0 ? (
+                            dashboardData.recent.tickets.map((t) => (
+                              <tr key={t._id}>
+                                <td className="text-truncate" style={{maxWidth: '150px'}}>{t.title}</td>
+                                <td>
+                                  <span
+                                    className={`badge ${
+                                      t.status === "Open"
+                                        ? "bg-warning"
+                                        : t.status === "Resolved"
+                                        ? "bg-success"
+                                        : "bg-secondary"
+                                    }`}
+                                  >
+                                    {t.status}
+                                  </span>
+                                </td>
+                                <td>
                                   {t.created_at
                                     ? new Date(t.created_at).toLocaleDateString()
                                     : "N/A"}
                                 </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="3" className="text-center text-muted py-3">
+                                No recent tickets
+                              </td>
                             </tr>
-                          ))
-                        ) : (
-                          <tr>
-                            <td colSpan="3" className="text-center text-muted">
-                              No recent tickets
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="col-md-12 mt-4">
+              <div className="col-12 mt-3">
                 <div className="card shadow-sm">
                   <div className="card-header bg-success text-white">
                     Recent Properties
                   </div>
-                  <div className="card-body table-responsive">
-                    <table className="table table-sm">
-                      <thead>
-                        <tr>
-                          <th>Property Name</th>
-                          <th>Owner</th>
-                          <th>Location</th>
-                          <th>Address</th>
-                          <th>Date Captured</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-  {dashboardData?.recent.properties?.length > 0 ? (
-    dashboardData.recent.properties.map((prop) => (
-      <tr key={prop._id}>
-        <td>{prop.property_name}</td>
-        <td>{prop.owner_name}</td>
-        <td>{prop.property_location}</td>
-        <td>{prop.property_address}</td>
-        <td>
-          {prop.created_at
-            ? new Date(prop.created_at).toLocaleDateString()
-            : "N/A"}
-        </td>
-      </tr>
-    ))
-  ) : (
-    <tr>
-      <td colSpan="5" className="text-center text-muted">
-        No recent properties
-      </td>
-    </tr>
-  )}
-</tbody>
-
-                    </table>
+                  <div className="card-body p-0">
+                    <div className="table-responsive">
+                      <table className="table table-sm mb-0">
+                        <thead>
+                          <tr>
+                            <th>Property Name</th>
+                            <th>Owner</th>
+                            <th>Location</th>
+                            <th>Address</th>
+                            <th>Date Captured</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dashboardData?.recent.properties?.length > 0 ? (
+                            dashboardData.recent.properties.map((prop) => (
+                              <tr key={prop._id}>
+                                <td className="text-truncate" style={{maxWidth: '120px'}}>{prop.property_name}</td>
+                                <td className="text-truncate" style={{maxWidth: '120px'}}>{prop.owner_name}</td>
+                                <td className="text-truncate" style={{maxWidth: '120px'}}>{prop.property_location}</td>
+                                <td className="text-truncate" style={{maxWidth: '150px'}}>{prop.property_address}</td>
+                                <td>
+                                  {prop.created_at
+                                    ? new Date(prop.created_at).toLocaleDateString()
+                                    : "N/A"}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr>
+                              <td colSpan="5" className="text-center text-muted py-3">
+                                No recent properties
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -462,7 +502,7 @@ export default function Dashboard() {
   if (!isAuthenticated) {
     return (
       <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
-        <div className="card p-4 shadow-sm" style={{ width: "350px" }}>
+        <div className="card p-4 shadow-sm login-card">
           <h4 className="text-center mb-3 fw-bold">Super Admin Login</h4>
           {error && <div className="alert alert-danger">{error}</div>}
           <form onSubmit={handleLogin}>
@@ -496,99 +536,112 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="customer-support d-flex flex-column min-vh-100">
-      {/* Top Navbar */}
-      <nav className="navbar navbar-light bg-white sticky-top px-3 shadow-sm">
-        <div className="d-flex align-items-center text-decoration-none text-dark">
-          <img
-            src={logo.src}
-            className="logo rounded-2 d-none d-md-block"
-            alt="Noretek Energy Ltd"
-            width={120}
-          />
+    <div className="dashboard-layout d-flex">
+      {/* Mobile Overlay */}
+      {sidebarOpen && isMobile && (
+        <div 
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+      )}
+
+      {/* Sidebar */}
+      <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
+        <div className="sidebar-header">
+          <div className="d-flex align-items-center text-decoration-none text-dark">
+            <img
+              src={logo.src}
+              className="logo rounded-2"
+              alt="Noretek Energy Ltd"
+              width={120}
+            />
+          </div>
+          <button 
+            className="sidebar-close d-lg-none"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <i className="bi bi-x-lg"></i>
+          </button>
         </div>
-        <div className="d-flex align-items-center gap-3">
-          <span className="fw-semibold">Super Admin</span>
+        
+        <div className="sidebar-content">
+          <div className="menu-section">
+            <div 
+              className={`menu-item ${activeContent === "Dashboard" ? "active" : ""}`}
+              onClick={() => handleMenuClick("Dashboard")}
+            >
+              <i className="bi bi-speedometer2"></i>
+              <span>Dashboard</span>
+            </div>
+          </div>
+
+          {sidebarMenu.map((section, idx) => (
+            <div key={idx} className="menu-section">
+              <div className="menu-title">{section.title}</div>
+              {section.children.map((child, i) => (
+                <div
+                  key={i}
+                  className={`menu-item ${
+                    activeContent === child.key ? "active" : ""
+                  }`}
+                  onClick={() => handleMenuClick(child.key)}
+                >
+                  <i className={`bi ${
+                    child.key === "Add Staff" ? "bi-person-plus" :
+                    child.key === "Filter by Role" ? "bi-funnel" :
+                    child.key === "Manage Admin" ? "bi-people" :
+                    "bi-headset"
+                  }`}></i>
+                  <span>{child.name}</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        <div className="sidebar-footer d-lg-none">
+          <div className="user-info">
+            <span className="fw-semibold">Super Admin</span>
+          </div>
           <button
-           
-            className="btn btn-sm btn-outline-danger"
-              onClick={() => {
-              localStorage.clear();
-              router.push("/");
-            }}
+            onClick={handleLogout}
+            className="btn btn-sm btn-outline-danger w-100 mt-2"
           >
             Logout
           </button>
         </div>
-      </nav>
+      </aside>
 
-      <div className="d-flex flex-grow-1">
-        {/* Sidebar */}
-        <aside
-          className="bg-white border-end p-3 d-none d-lg-block"
-          style={{ width: "250px" }}
-        >
-          <div className="accordion border-0" id="sidebarMenu">
-            <ul className="navbar-nav">
-              <li className="nav-item mx-3">
-                <button
-                  onClick={() => setActiveContent("Dashboard")}
-                  className="btn btn-link fw-bold shadow-sm nav-link text-decoration-none"
-                >
-                  Dashboard
-                </button>
-              </li>
-            </ul>
-            {sidebarMenu.map((section, idx) => (
-              <div className="accordion-item border-0" key={idx}>
-                <h2 className="accordion-header" id={`heading${idx}`}>
-                  <button
-                    className="accordion-button collapsed fw-semibold shadow-none border-0"
-                    type="button"
-                    data-bs-toggle="collapse"
-                    data-bs-target={`#collapse${idx}`}
-                  >
-                    {section.title}
-                  </button>
-                </h2>
-                {section.children.length > 0 && (
-                  <div
-                    id={`collapse${idx}`}
-                    className="accordion-collapse collapse"
-                  >
-                    <div className="accordion-body p-2">
-                      <ul className="list-unstyled mb-0">
-                        {section.children.map((child, i) => (
-                          <li key={i} className="p-1">
-                            <button
-                              onClick={() => setActiveContent(child.key)}
-                              className="btn btn-link text-decoration-none p-0"
-                            >
-                              {child.name}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
+      {/* Main Content */}
+      <main className="flex-grow-1">
+        <nav className="topbar">
+          <div className="left d-flex align-items-center">
+            <button 
+              className="sidebar-toggle me-3 d-lg-none"
+              onClick={toggleSidebar}
+            >
+              <i className="bi bi-list"></i>
+            </button>
+            <h4 className="mb-0">{activeContent}</h4>
           </div>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-grow-1 p-4 bg-light">
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h4 className="fw-bold mb-0">{activeContent}</h4>
-            <span className="text-muted">
+          <div className="right d-flex align-items-center gap-3">
+            <span className="fw-semibold d-none d-lg-inline">Super Admin</span>
+            <span className="text-muted d-none d-md-inline">
               {new Date().toLocaleDateString()}
             </span>
+            <button
+              onClick={handleLogout}
+              className="btn btn-sm btn-outline-danger d-none d-lg-block"
+            >
+              Logout
+            </button>
           </div>
-
+        </nav>
+        
+        <div className="content-area p-3 p-lg-4 bg-light">
           {renderContent()}
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

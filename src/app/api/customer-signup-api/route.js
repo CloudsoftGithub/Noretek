@@ -1,11 +1,12 @@
+// src/app/api/customer-signup-api/route.js
 import { NextResponse } from "next/server";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import connectDB from "@/lib/mongodb";
 import CustomerTable from "@/models/CustomerTable";
+import PropertyUnit from "@/models/PropertyUnit"; // Make sure to import PropertyUnit
 
-
-const JWT_SECRET = process.env.JWT_SECRET || "supersecret"; // keep in .env
+const JWT_SECRET = process.env.JWT_SECRET || "supersecret";
 
 // CREATE Customer (Signup)
 export async function POST(req) {
@@ -51,10 +52,44 @@ export async function POST(req) {
     }
 
     // Check if email already exists
-    const existing = await CustomerTable.findOne({ email });
-    if (existing) {
+    const existingEmail = await CustomerTable.findOne({ email });
+    if (existingEmail) {
       return NextResponse.json(
         { success: false, message: "Email already registered" },
+        { status: 400 }
+      );
+    }
+
+    // Check if property unit is already assigned to another customer
+    const existingPropertyUnit = await CustomerTable.findOne({
+      $or: [
+        { propertyName: property_id, propertyUnit: unit_id },
+        { propertyUnit: unit_id }
+      ]
+    }).populate('propertyName').populate('propertyUnit');
+
+    if (existingPropertyUnit) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: `This property unit is already assigned to customer: ${existingPropertyUnit.name}. Please select a different unit.` 
+        },
+        { status: 400 }
+      );
+    }
+
+    // Check if the property unit exists and is not already assigned
+    const propertyUnit = await PropertyUnit.findById(unit_id);
+    if (!propertyUnit) {
+      return NextResponse.json(
+        { success: false, message: "Selected property unit not found" },
+        { status: 400 }
+      );
+    }
+
+    if (propertyUnit.assigned) {
+      return NextResponse.json(
+        { success: false, message: "This property unit is already assigned to another customer" },
         { status: 400 }
       );
     }
@@ -75,7 +110,7 @@ export async function POST(req) {
       propertyUnit: unit_id,
     });
 
-    // Mark the property unit as assigned!
+    // Mark the property unit as assigned
     await PropertyUnit.findByIdAndUpdate(unit_id, { assigned: true });
 
     // Generate JWT
@@ -109,7 +144,7 @@ export async function GET() {
     await connectDB();
     const customers = await CustomerTable.find()
       .populate("propertyName", "property_name property_location property_address")
-      .populate("propertyUnit", "unit_description blockno meter_id");
+      .populate("propertyUnit", "unit_description blockno meter_id assigned");
 
     return NextResponse.json({
       success: true,
@@ -221,15 +256,25 @@ export async function DELETE(req) {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
-    const deleted = await CustomerTable.findByIdAndDelete(id);
-    if (!deleted) {
+    const customer = await CustomerTable.findById(id);
+    if (!customer) {
       return NextResponse.json(
         { success: false, message: "Customer not found" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ success: true, message: "Customer deleted" });
+    // Free up the property unit when customer is deleted
+    if (customer.propertyUnit) {
+      await PropertyUnit.findByIdAndUpdate(customer.propertyUnit, { assigned: false });
+    }
+
+    const deleted = await CustomerTable.findByIdAndDelete(id);
+
+    return NextResponse.json({ 
+      success: true, 
+      message: "Customer deleted and property unit freed up" 
+    });
   } catch (error) {
     console.error("DELETE error:", error);
     return NextResponse.json(
