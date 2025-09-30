@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react"; // Added useEffect
 import { useRouter } from "next/navigation";
 import axios from "axios";
 
@@ -13,6 +13,18 @@ export default function Login() {
   const [message, setMessage] = useState("");
   const [submitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isClient, setIsClient] = useState(false); // Added client-side detection
+
+  // Set client-side flag
+  useEffect(() => {
+    setIsClient(true);
+    
+    // Load remembered email only on client side
+    const rememberedEmail = localStorage.getItem("rememberedEmail");
+    if (rememberedEmail) {
+      setForm(prev => ({ ...prev, email: rememberedEmail, rememberMe: true }));
+    }
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -32,12 +44,16 @@ export default function Login() {
 
       setMessage(res.data.message);
 
-      // Save user info
-      localStorage.setItem("userEmail", form.email);
-      localStorage.setItem("userRole", res.data.role);
-      
-      if (form.rememberMe) {
-        localStorage.setItem("rememberedEmail", form.email);
+      // Only use localStorage on client side
+      if (isClient) {
+        localStorage.setItem("userEmail", form.email);
+        localStorage.setItem("userRole", res.data.role);
+        
+        if (form.rememberMe) {
+          localStorage.setItem("rememberedEmail", form.email);
+        } else {
+          localStorage.removeItem("rememberedEmail");
+        }
       }
 
       // Redirect
@@ -65,13 +81,25 @@ export default function Login() {
     setShowPassword(!showPassword);
   };
 
-  // Load remembered email on component mount
-  useState(() => {
-    const rememberedEmail = localStorage.getItem("rememberedEmail");
-    if (rememberedEmail) {
-      setForm(prev => ({ ...prev, email: rememberedEmail, rememberMe: true }));
-    }
-  }, []);
+  // Show loading state during SSR
+  if (!isClient) {
+    return (
+      <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
+        <div className="card p-4 shadow-sm login-card">
+          <div className="text-center">
+            <div className="bg-primary bg-opacity-10 d-inline-flex p-3 rounded-circle mb-3">
+              <i className="bi bi-person-check text-primary fs-2"></i>
+            </div>
+            <h4 className="fw-bold text-primary mb-1">Customer Sign In</h4>
+            <p className="text-muted">Loading...</p>
+            <div className="spinner-border text-primary" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="d-flex justify-content-center align-items-center vh-100 bg-light">
@@ -211,6 +239,7 @@ export default function Login() {
             type="button"
             className="btn btn-outline-secondary w-100 py-2"
             onClick={goToMainPage}
+            disabled={submitting}
           >
             <i className="bi bi-house me-2"></i>
             Back to Main Page
@@ -266,10 +295,14 @@ export default function Login() {
           transition: all 0.3s ease;
         }
         
-        .btn-outline-secondary:hover {
+        .btn-outline-secondary:hover:not(:disabled) {
           background-color: #6c757d;
           color: white;
           transform: translateY(-2px);
+        }
+        
+        .btn-outline-secondary:disabled {
+          opacity: 0.6;
         }
         
         .form-control {

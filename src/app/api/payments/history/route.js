@@ -1,3 +1,7 @@
+// /src/app/api/payments/history/route.js
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { connectDB, getConnectionStatus } from "@/lib/mongodb";
 import Payment from "@/models/Payment";
 import Token from "@/models/Token";

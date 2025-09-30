@@ -1,4 +1,7 @@
 // /src/app/api/tokens/history/route.js
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { connectDB, getConnectionStatus } from '@/lib/mongodb';
 import Token from '@/models/Token';
 
