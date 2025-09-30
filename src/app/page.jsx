@@ -21,7 +21,7 @@ export default function Home() {
                     href="/customer-signin"
                     class="btn-get-started text-decoration-none py-4 scrollto  d-inline-flex align-items-center justify-content-center align-self-center"
                   >
-                    <span className=" fw-bold">Login</span>
+                    <span className=" fw-bold">Customer Login</span>
                   </a>
                   <a
                     href="/stafflogin"
