@@ -5,8 +5,11 @@ import Token from "@/models/Token";
 import axios from "axios";
 import { getCurrentPrice } from "@/lib/priceManager";
 
-// Define API_BASE_URL using environment variable
-const API_BASE_URL = process.env.API_BASE_URL || 'http://47.107.69.132:9400';
+// Use your vend URLs directly
+const VEND_URLS = [
+  'http://47.107.69.132:9400/API/Token/CreditToken/Generate',
+  'http://47.107.69.132:9400/API/Token/CreditToken/GenerateS2'
+];
 
 // Conversion factor: 510 kg = 1 cubic meter
 const KG_PER_CUBIC_METER = 510;
@@ -28,12 +31,7 @@ async function generateVendToken(meterNumber, amount, reference) {
     isPreview: false,
   };
 
-  const endpoints = [
-    `${API_BASE_URL}/API/Token/CreditToken/Generate`,
-    `${API_BASE_URL}/API/Token/CreditToken/GenerateS2`,
-  ];
-
-  for (const endpoint of endpoints) {
+  for (const endpoint of VEND_URLS) {
     try {
       console.log(`Attempting token generation from ${endpoint}`);
       const response = await fetch(endpoint, {

@@ -21,23 +21,29 @@ export async function POST(request) {
     // Get current price from metadata or use default (ensure it's a number)
     const currentPricePerKg = Number(metadata?.pricePerKg) || getCurrentPrice();
     
-    // Calculate units based on current price (FIXED: removed duplicate declaration)
+    // Calculate units based on current price
     const calculatedUnits = (amount / currentPricePerKg).toFixed(2);
 
     // Enrich metadata with price and units
     const enrichedMetadata = {
       ...metadata,
       purchase_type: "gas_token",
-      pricePerKg: currentPricePerKg, // Ensure this is a number
+      pricePerKg: currentPricePerKg,
       nairaAmount: amount,
       units: calculatedUnits
     };
+
+    // Get the base URL dynamically - this works in both dev and production
+    const baseUrl = process.env.NEXTAUTH_URL || 
+                   (process.env.NODE_ENV === 'production' 
+                     ? 'https://noretek-1.onrender.com'  // Replace with your actual domain
+                     : 'http://localhost:3000');
 
     const payload = {
       email,
       amount: amount * 100, // Convert to kobo for Paystack
       metadata: enrichedMetadata,
-      callback_url: `${process.env.NEXTAUTH_URL || "http://localhost:3000"}/customer_payment_dashboard`
+      callback_url: `${baseUrl}/customer_payment_dashboard/`
     };
 
     const response = await initializeTransaction(payload);
