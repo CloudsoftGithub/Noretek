@@ -39,22 +39,36 @@ export async function POST(request) {
       sessionId: metadata?.sessionId || `sess_${Date.now()}`
     };
 
-    // Get the base URL - FIXED: Use explicit localhost for development
+    // SMART BASE URL DETECTION - FIXED VERSION
     let baseUrl;
     
-    if (process.env.NODE_ENV === 'production') {
-      // Production - use Render.com domain
-      baseUrl = process.env.NEXTAUTH_URL || 'https://noretek-l4z4.onrender.com';
-    } else {
-      // Development - always use localhost
+    // Method 1: Check FORCE_LOCALHOST environment variable
+    if (process.env.FORCE_LOCALHOST === 'true') {
       baseUrl = 'http://localhost:3000';
+      console.log('🔧 Using localhost (FORCE_LOCALHOST=true)');
+    }
+    // Method 2: Check NODE_ENV
+    else if (process.env.NODE_ENV === 'development') {
+      baseUrl = 'http://localhost:3000';
+      console.log('🔧 Using localhost (NODE_ENV=development)');
+    }
+    // Method 3: Check if NEXTAUTH_URL contains localhost
+    else if (process.env.NEXTAUTH_URL && process.env.NEXTAUTH_URL.includes('localhost')) {
+      baseUrl = 'http://localhost:3000';
+      console.log('🔧 Using localhost (NEXTAUTH_URL contains localhost)');
+    }
+    // Method 4: Production fallback
+    else {
+      baseUrl = process.env.NEXTAUTH_URL || 'https://noretek-l4z4.onrender.com';
+      console.log('🔧 Using production URL');
     }
 
-    console.log('Payment initialization for:', { 
+    console.log('🚀 Payment initialization details:', { 
       email, 
       baseUrl, 
-      environment: process.env.NODE_ENV,
-      hasNextAuthUrl: !!process.env.NEXTAUTH_URL
+      NODE_ENV: process.env.NODE_ENV,
+      FORCE_LOCALHOST: process.env.FORCE_LOCALHOST,
+      NEXTAUTH_URL: process.env.NEXTAUTH_URL
     });
 
     const payload = {
@@ -63,6 +77,12 @@ export async function POST(request) {
       metadata: enrichedMetadata,
       callback_url: `${baseUrl}/customer_payment_dashboard/?email=${encodeURIComponent(email)}&refresh=true`
     };
+
+    console.log('📤 Paystack payload:', {
+      callback_url: payload.callback_url,
+      amount: payload.amount,
+      email: payload.email
+    });
 
     const response = await initializeTransaction(payload);
 
@@ -98,7 +118,7 @@ export async function POST(request) {
           };
 
           await Payment.create(paymentData);
-          console.log("✅ Payment initialized:", {
+          console.log("✅ Payment initialized successfully:", {
             reference,
             email,
             amount,
