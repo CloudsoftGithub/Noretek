@@ -1,6 +1,6 @@
 // src/app/api/payments/initialize/route.js
-export const dynamic = 'force-dynamic'; // Add this line
-export const runtime = 'nodejs'; // Add this line
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 import { NextResponse } from "next/server";
 import { initializeTransaction } from "@/lib/paystack";
@@ -21,33 +21,47 @@ export async function POST(request) {
       );
     }
 
-    // Get current price from metadata or use default (ensure it's a number)
+    // Get current price from metadata or use default
     const currentPricePerKg = Number(metadata?.pricePerKg) || getCurrentPrice();
     
     // Calculate units based on current price
     const calculatedUnits = (amount / currentPricePerKg).toFixed(2);
 
-    // Enrich metadata with price and units
+    // Enrich metadata with user session info
     const enrichedMetadata = {
       ...metadata,
       purchase_type: "gas_token",
       pricePerKg: currentPricePerKg,
       nairaAmount: amount,
-      units: calculatedUnits
+      units: calculatedUnits,
+      userEmail: email,
+      timestamp: Date.now(),
+      sessionId: metadata?.sessionId || `sess_${Date.now()}`
     };
 
-    // Get the host from the request for dynamic callback URL
-    const host = request.headers.get('host');
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const baseUrl = process.env.NEXTAUTH_URL || `${protocol}://${host}`;
+    // Get the base URL - FIXED: Use explicit localhost for development
+    let baseUrl;
+    
+    if (process.env.NODE_ENV === 'production') {
+      // Production - use Render.com domain
+      baseUrl = process.env.NEXTAUTH_URL || 'https://noretek-l4z4.onrender.com';
+    } else {
+      // Development - always use localhost
+      baseUrl = 'http://localhost:3000';
+    }
 
-    console.log('Using baseUrl:', baseUrl);
+    console.log('Payment initialization for:', { 
+      email, 
+      baseUrl, 
+      environment: process.env.NODE_ENV,
+      hasNextAuthUrl: !!process.env.NEXTAUTH_URL
+    });
 
     const payload = {
       email,
-      amount: amount * 100, // Convert to kobo for Paystack
+      amount: amount * 100,
       metadata: enrichedMetadata,
-      callback_url: `${baseUrl}/customer_payment_dashboard/`
+      callback_url: `${baseUrl}/customer_payment_dashboard/?email=${encodeURIComponent(email)}&refresh=true`
     };
 
     const response = await initializeTransaction(payload);
@@ -73,7 +87,8 @@ export async function POST(request) {
             metadata: {
               ...enrichedMetadata,
               authorization_url: response.data.authorization_url,
-              callback_url: payload.callback_url
+              callback_url: payload.callback_url,
+              userEmail: email
             },
             status: "pending",
             meter_id: enrichedMetadata?.meterId || enrichedMetadata?.meterNumber || null,
@@ -85,10 +100,10 @@ export async function POST(request) {
           await Payment.create(paymentData);
           console.log("✅ Payment initialized:", {
             reference,
+            email,
             amount,
-            pricePerKg: currentPricePerKg,
-            units: calculatedUnits,
-            callback_url: payload.callback_url
+            callback_url: payload.callback_url,
+            environment: process.env.NODE_ENV
           });
         }
       } catch (dbError) {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import TicketForm from "@/MainComponent/TicketForm";
 
 export default function UserDashboard() {
+  const router = useRouter();
   const [isClient, setIsClient] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [email, setEmail] = useState("");
@@ -31,19 +32,41 @@ export default function UserDashboard() {
   const [saveStatus, setSaveStatus] = useState("");
   const [payments, setPayments] = useState([]);
 
-  // ✅ Support states
+  // Support states
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
 
-  const router = useRouter();
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen);
 
-  // ✅ Fix hydration error - only render on client side
+  // Session validation and client-side hydration fix
   useEffect(() => {
     setIsClient(true);
-  }, []);
+    
+    // Check for valid user session
+    const checkUserSession = () => {
+      const storedEmail = localStorage.getItem("userEmail");
+      const userRole = localStorage.getItem("userRole");
+      
+      console.log("Dashboard session check:", { email: storedEmail, role: userRole });
+      
+      // If no email or role is not Customer, redirect to login
+      if (!storedEmail || userRole !== "Customer") {
+        console.log("No valid customer session, redirecting to login");
+        router.push("/customer-signin");
+        return false;
+      }
+      
+      setEmail(storedEmail);
+      return true;
+    };
+
+    // Only proceed if session is valid
+    if (checkUserSession()) {
+      fetchUserData();
+    }
+  }, [router]);
 
   // Helper to get proper ticket date
   const getTicketDate = (ticket) => {
@@ -56,48 +79,48 @@ export default function UserDashboard() {
     }
   };
 
-  // 🔹 Fetch user profile
-  useEffect(() => {
-    if (!isClient) return;
-
-    const fetchUserData = async () => {
-      setIsLoading(true);
-      try {
-        const storedEmail = localStorage.getItem("userEmail");
-        if (storedEmail) {
-          setEmail(storedEmail);
-
-          const res = await fetch(`/api/user/profile?email=${storedEmail}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.success && data.user) {
-              const fullName = data.user.name || "";
-              const [firstName, ...lastNameParts] = fullName.split(" ");
-              const lastName = lastNameParts.join(" ");
-
-              setUserData({
-                id: data.user._id,
-                firstName: firstName || "",
-                lastName: lastName || "",
-                phone: data.user.phone || "",
-                address: data.user.address || "",
-                meterId: data.user.meterId || "",
-              });
-            }
-          }
-
-          refreshPayments(storedEmail);
-          fetchTickets(storedEmail);
-        }
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      } finally {
-        setIsLoading(false);
+  // Fetch user profile data
+  const fetchUserData = async () => {
+    setIsLoading(true);
+    try {
+      const storedEmail = localStorage.getItem("userEmail");
+      if (!storedEmail) {
+        router.push("/customer-signin");
+        return;
       }
-    };
 
-    fetchUserData();
-  }, [isClient]);
+      const res = await fetch(`/api/user/profile?email=${storedEmail}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.user) {
+          const fullName = data.user.name || "";
+          const [firstName, ...lastNameParts] = fullName.split(" ");
+          const lastName = lastNameParts.join(" ");
+
+          setUserData({
+            id: data.user._id,
+            firstName: firstName || "",
+            lastName: lastName || "",
+            phone: data.user.phone || "",
+            address: data.user.address || "",
+            meterId: data.user.meterId || "",
+          });
+        }
+      } else if (res.status === 401) {
+        // Session expired or invalid
+        console.log("Session expired, redirecting to login");
+        handleLogout();
+        return;
+      }
+
+      refreshPayments(storedEmail);
+      fetchTickets(storedEmail);
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const refreshPayments = async (email) => {
     try {
@@ -107,35 +130,44 @@ export default function UserDashboard() {
       if (response.ok) {
         const data = await response.json();
         setPayments(data.payments || []);
+      } else if (response.status === 401) {
+        handleLogout();
       }
     } catch (error) {
       console.error("Error fetching payments:", error);
     }
   };
 
-  // 🔹 Fetch tickets
+  // Fetch tickets
   const fetchTickets = async (email) => {
     try {
       const res = await fetch(`/api/tickets?email=${email}`);
-      const data = await res.json();
-      if (data.success) setTickets(data.tickets);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) setTickets(data.tickets);
+      } else if (res.status === 401) {
+        handleLogout();
+      }
     } catch (error) {
       console.error("Error fetching tickets:", error);
     }
   };
 
-  // 🔹 Fetch comments for a ticket
+  // Fetch comments for a ticket
   const fetchComments = async (ticketId) => {
     try {
       const res = await fetch(`/api/comments?ticket_id=${ticketId}`);
-      const data = await res.json();
-      if (data.success) setComments(data.comments);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) setComments(data.comments);
+      }
     } catch (error) {
       console.error("Error fetching comments:", error);
     }
   };
 
   const handleLogout = () => {
+    console.log("Logging out, clearing session");
     localStorage.clear();
     sessionStorage.clear();
     router.push("/customer-signin");
@@ -171,6 +203,8 @@ export default function UserDashboard() {
         } else {
           setSaveStatus("error");
         }
+      } else if (res.status === 401) {
+        handleLogout();
       } else {
         setSaveStatus("error");
       }
@@ -234,8 +268,8 @@ export default function UserDashboard() {
     router.push("/customer_payment_dashboard");
   };
 
-  // ✅ Show loading state until client-side rendering is ready
-  if (!isClient) {
+  // Show loading state until client-side rendering and session validation complete
+  if (!isClient || (isLoading && !email)) {
     return (
       <div className="d-flex justify-content-center align-items-center min-vh-100">
         <div className="text-center">
@@ -247,7 +281,6 @@ export default function UserDashboard() {
       </div>
     );
   }
-
 
   return (
     <>
@@ -262,7 +295,7 @@ export default function UserDashboard() {
         </div>
       )}
 
-      {/* ✅ Top Navbar */}
+      {/* Top Navbar */}
       <nav className="navbar navbar-expand-lg navbar-dark primaryColor">
         <div className="container-fluid d-flex align-items-center justify-content-between flex-wrap px-2">
           <button
@@ -290,7 +323,7 @@ export default function UserDashboard() {
         </div>
       </nav>
 
-      {/* ✅ Layout */}
+      {/* Layout */}
       <div className="d-flex">
         {/* Sidebar */}
         <div
@@ -333,7 +366,7 @@ export default function UserDashboard() {
           </ul>
         </div>
 
-        {/* ✅ Main Content */}
+        {/* Main Content */}
         <div id="main" className="flex-grow-1 p-4 bg-light">
           {/* Dashboard Section */}
           {activeSection === "dashboard" && (

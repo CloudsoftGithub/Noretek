@@ -19,6 +19,7 @@ function CustomerPaymentDashboardContent() {
   const [meterId, setMeterId] = useState(null);
   const [pricePerKg, setPricePerKg] = useState(1500);
   const [hasProcessedPayment, setHasProcessedPayment] = useState(false);
+  const [sessionRestored, setSessionRestored] = useState(false);
 
   // Conversion factor: 510 kg = 1 cubic meter
   const KG_PER_CUBIC_METER = 510;
@@ -27,6 +28,53 @@ function CustomerPaymentDashboardContent() {
   const calculateCubicMeters = (kg) => {
     return (kg / KG_PER_CUBIC_METER).toFixed(3);
   };
+
+  // Restore user session from URL parameters
+  useEffect(() => {
+    const restoreSession = () => {
+      try {
+        const urlEmail = searchParams?.get("email");
+        const refresh = searchParams?.get("refresh");
+        
+        console.log("Session restoration:", { urlEmail, refresh });
+
+        if (urlEmail) {
+          // Restore user session from URL parameters
+          localStorage.setItem("userEmail", urlEmail);
+          localStorage.setItem("userRole", "Customer");
+          setUser({ email: urlEmail });
+          setSessionRestored(true);
+          
+          // Clean up URL parameters after restoring session
+          const newUrl = new URL(window.location);
+          newUrl.searchParams.delete("email");
+          newUrl.searchParams.delete("refresh");
+          window.history.replaceState({}, "", newUrl);
+          
+          console.log("Session restored for:", urlEmail);
+        } else {
+          // Check existing session
+          const storedEmail = localStorage.getItem("userEmail");
+          const storedRole = localStorage.getItem("userRole");
+          
+          if (storedEmail && storedRole === "Customer") {
+            setUser({ email: storedEmail });
+            setSessionRestored(true);
+          } else {
+            // No valid session found
+            console.log("No valid session, redirecting to login");
+            router.push("/customer-signin");
+            return;
+          }
+        }
+      } catch (error) {
+        console.error("Session restoration error:", error);
+        router.push("/customer-signin");
+      }
+    };
+
+    restoreSession();
+  }, [searchParams, router]);
 
   useEffect(() => {
     // Load price from localStorage
@@ -52,22 +100,12 @@ function CustomerPaymentDashboardContent() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        if (typeof window === "undefined") {
+        if (!sessionRestored || !user?.email) {
           setLoading(false);
           return;
         }
 
-        const urlEmail = searchParams?.get("email");
-        const storedEmail = localStorage.getItem("userEmail");
-        const storedId = localStorage.getItem("userId");
-        const userEmail = urlEmail || storedEmail;
-
-        if (!userEmail) {
-          window.location.href = "/customer-signin";
-          return;
-        }
-
-        setUser({ email: userEmail, id: storedId });
+        const userEmail = user.email;
 
         // Fetch user profile
         const profileRes = await fetch(
@@ -75,9 +113,10 @@ function CustomerPaymentDashboardContent() {
         );
         const profileData = await profileRes.json();
         if (profileData.success && profileData.user) {
-          if (!storedId) {
-            localStorage.setItem("userId", profileData.user.id);
-            setUser({ email: profileData.user.email, id: profileData.user.id });
+          const userId = profileData.user.id;
+          if (userId) {
+            localStorage.setItem("userId", userId);
+            setUser(prev => ({ ...prev, id: userId }));
           }
           if (profileData.user.meterId) {
             setMeterId(profileData.user.meterId);
@@ -94,6 +133,8 @@ function CustomerPaymentDashboardContent() {
 
         const reference = searchParams?.get("reference") || searchParams?.get("trxref");
         const paymentSuccess = searchParams?.get("payment_success");
+
+        console.log("Payment processing check:", { reference, paymentSuccess, hasProcessedPayment });
 
         // Check if we've already processed this payment during this session
         const processedPayments = JSON.parse(localStorage.getItem('processedPayments') || '{}');
@@ -246,8 +287,10 @@ function CustomerPaymentDashboardContent() {
       }
     };
 
-    fetchData();
-  }, [searchParams, pricePerKg, hasProcessedPayment]);
+    if (sessionRestored && user?.email) {
+      fetchData();
+    }
+  }, [sessionRestored, user, searchParams, pricePerKg, hasProcessedPayment]);
 
   const formatToken = (token) => {
     if (!token) return "N/A";
@@ -266,6 +309,18 @@ function CustomerPaymentDashboardContent() {
       setError("Token not found for this payment. Please contact support.");
     }
   };
+
+  // Show loading state during session restoration
+  if (!sessionRestored) {
+    return (
+      <div className="container py-5 text-center">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+        <p className="mt-3">Restoring your session...</p>
+      </div>
+    );
+  }
 
   if (loading || verifyingPayment) {
     return (
