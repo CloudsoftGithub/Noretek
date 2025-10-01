@@ -1,4 +1,6 @@
 // src/app/api/payments/initialize/route.js
+export const dynamic = 'force-dynamic'; // Add this line
+export const runtime = 'nodejs'; // Add this line
 
 import { NextResponse } from "next/server";
 import { initializeTransaction } from "@/lib/paystack";
@@ -34,11 +36,12 @@ export async function POST(request) {
       units: calculatedUnits
     };
 
-    // Get the base URL dynamically - this works in both dev and production
-    const baseUrl = process.env.NEXTAUTH_URL || 
-                   (process.env.NODE_ENV === 'production' 
-                     ? 'https://noretek-l4z4.onrender.com'  // Replace with your actual domain
-                     : 'http://localhost:3000');
+    // Get the host from the request for dynamic callback URL
+    const host = request.headers.get('host');
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const baseUrl = process.env.NEXTAUTH_URL || `${protocol}://${host}`;
+
+    console.log('Using baseUrl:', baseUrl);
 
     const payload = {
       email,
@@ -84,7 +87,8 @@ export async function POST(request) {
             reference,
             amount,
             pricePerKg: currentPricePerKg,
-            units: calculatedUnits
+            units: calculatedUnits,
+            callback_url: payload.callback_url
           });
         }
       } catch (dbError) {
